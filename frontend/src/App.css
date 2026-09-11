@@ -240,6 +240,18 @@
   color: var(--ink-tertiary);
 }
 
+.loading-screen {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+  text-align: center;
+}
+
+.loading-screen .hero-note {
+  margin-top: 0;
+}
+
 /* ---------- Product panel ---------- */
 .panel-section {
   padding: 48px 0 0;

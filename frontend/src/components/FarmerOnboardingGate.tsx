@@ -48,7 +48,7 @@ export function FarmerOnboardingGate({ children }: { children: ReactNode }) {
   if (state.status === "loading") {
     return (
       <main className="page">
-        <section className="hero">
+        <section className="loading-screen">
           <p className="hero-note">Loading your profile…</p>
         </section>
       </main>
