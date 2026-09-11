@@ -9,6 +9,7 @@ import { FarmerDashboardPage } from "./pages/dashboards/Farmer";
 import { JalVigyaniDashboardPage } from "./pages/dashboards/JalVigyani";
 import { DamOperatorDashboardPage } from "./pages/dashboards/DamOperator";
 import { RequireRole } from "./components/RequireRole";
+import { FarmerOnboardingGate } from "./components/FarmerOnboardingGate";
 import { RouteProgressBar } from "./components/RouteProgressBar";
 import { ROLES } from "./lib/roles";
 import "./App.css";
@@ -49,7 +50,9 @@ function App() {
           path="/app/farmer/*"
           element={
             <RequireRole roles={[ROLES.FARMER]}>
-              <FarmerDashboardPage />
+              <FarmerOnboardingGate>
+                <FarmerDashboardPage />
+              </FarmerOnboardingGate>
             </RequireRole>
           }
         />

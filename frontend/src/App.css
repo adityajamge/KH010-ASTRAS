@@ -519,6 +519,74 @@
   border-radius: 4px;
 }
 
+/* ---------- Farmer onboarding ---------- */
+.onboarding-wrap {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 64px 0 96px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  align-items: center;
+}
+
+.onboarding-head {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.onboarding-head h1 {
+  font-size: 28px;
+  font-weight: 600;
+  letter-spacing: -0.6px;
+  margin: 0;
+}
+
+.onboarding-card {
+  width: 100%;
+  padding: 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.onboarding-section-title {
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.2px;
+  color: var(--ink-subtle);
+  text-transform: uppercase;
+  margin: 20px 0 4px;
+}
+
+.onboarding-section-title:first-child {
+  margin-top: 0;
+}
+
+.muted {
+  color: var(--ink-muted);
+  font-size: 16px;
+  margin: 0;
+}
+
+.field-hint {
+  font-size: 13px;
+  color: var(--ink-subtle);
+  margin: 2px 0 0;
+}
+
+.field-error {
+  font-size: 14px;
+  color: var(--danger);
+  background: rgba(207, 34, 46, 0.08);
+  border: 1px solid rgba(207, 34, 46, 0.24);
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin: 16px 0 0;
+}
+
 /* ---------- Dashboard primitives ---------- */
 .dash-section .section-head {
   margin-bottom: 40px;

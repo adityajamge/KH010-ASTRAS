@@ -7,11 +7,13 @@ from app.models.monitoring import Anomaly, SensorReading
 from app.models.network import Canal, WaterSource
 from app.models.request import Allocation, Delivery, Schedule, WaterRequest
 from app.models.system import AuditLog, Notification
+from app.models.village import Village
 
 __all__ = [
     "Base",
     "Farmer",
     "Field",
+    "Village",
     "Canal",
     "WaterSource",
     "WaterRequest",
