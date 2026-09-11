@@ -19,12 +19,12 @@
   @keyframes linkFlow { from { stroke-dashoffset: 48; } to { stroke-dashoffset: 0; } }
   @keyframes ringSpin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
   @keyframes ringSpinBack { from { transform: rotate(360deg); } to { transform: rotate(0deg); } }
-  @keyframes rippleOut { 0% { transform: scale(0.62); opacity: 0; } 18% { opacity: 0.45; } 100% { transform: scale(1.18); opacity: 0; } }
+  @keyframes rippleOut { 0% { transform: scale(0.68); opacity: 0; } 15% { opacity: 1; } 100% { transform: scale(1.2); opacity: 0; } }
   @keyframes sheen { 0%, 100% { opacity: 0.2; } 50% { opacity: 0.6; } }
 </style>
 </helmet>
 <div style="min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 48px 24px; box-sizing: border-box; background: #fbfcfd;">
-  <svg viewBox="0 0 200 200" width="280" height="280" style="overflow: visible; display: block;" role="img" aria-label="Animated water drop AI logo">
+  <svg viewBox="-12 -4 224 224" width="280" height="280" style="overflow: visible; display: block;" role="img" aria-label="Animated water drop AI logo">
     <defs>
       <clipPath id="dropClip">
         <path d="M100 26 C100 26 152 82 152 116 A52 52 0 1 1 48 116 C48 82 100 26 100 26 Z" />
@@ -41,14 +41,20 @@
 
     <sc-if value="{{ showRipple }}" hint-placeholder-val="{{ true }}">
       <g>
-        <circle cx="100" cy="112" r="76" fill="none" stroke="oklch(0.72 0.09 236)" stroke-width="1.25" style="transform-origin: 100px 112px; animation: rippleOut 4.8s cubic-bezier(0.22, 0.61, 0.36, 1) infinite;" />
-        <circle cx="100" cy="112" r="76" fill="none" stroke="oklch(0.72 0.09 236)" stroke-width="1.25" style="transform-origin: 100px 112px; animation: rippleOut 4.8s cubic-bezier(0.22, 0.61, 0.36, 1) infinite 1.6s;" />
-        <circle cx="100" cy="112" r="76" fill="none" stroke="oklch(0.72 0.09 236)" stroke-width="1.25" style="transform-origin: 100px 112px; animation: rippleOut 4.8s cubic-bezier(0.22, 0.61, 0.36, 1) infinite 3.2s;" />
+        <circle cx="100" cy="112" r="78" fill="none" stroke="oklch(0.62 0.13 238)" stroke-width="5" style="transform-origin: 100px 112px; animation: rippleOut 4.2s cubic-bezier(0.22, 0.61, 0.36, 1) infinite;" />
+        <circle cx="100" cy="112" r="78" fill="none" stroke="oklch(0.62 0.13 238)" stroke-width="5" style="transform-origin: 100px 112px; animation: rippleOut 4.2s cubic-bezier(0.22, 0.61, 0.36, 1) infinite 1.4s;" />
+        <circle cx="100" cy="112" r="78" fill="none" stroke="oklch(0.62 0.13 238)" stroke-width="5" style="transform-origin: 100px 112px; animation: rippleOut 4.2s cubic-bezier(0.22, 0.61, 0.36, 1) infinite 2.8s;" />
       </g>
     </sc-if>
 
-    <circle cx="100" cy="112" r="70" fill="none" stroke="oklch(0.68 0.1 240)" stroke-width="1.5" stroke-linecap="round" stroke-dasharray="2 14" style="transform-origin: 100px 112px; animation: ringSpin 26s linear infinite; opacity: 0.5;" />
-    <circle cx="100" cy="112" r="63" fill="none" stroke="oklch(0.7 0.11 272)" stroke-width="1.5" stroke-linecap="round" stroke-dasharray="34 330" style="transform-origin: 100px 112px; animation: ringSpinBack 14s linear infinite; opacity: 0.75;" />
+    <circle cx="100" cy="112" r="72" fill="none" stroke="oklch(0.6 0.12 240)" stroke-width="5" stroke-linecap="round" stroke-dasharray="5 20" style="transform-origin: 100px 112px; animation: ringSpin 16s linear infinite;" />
+    <circle cx="100" cy="112" r="64" fill="none" stroke="oklch(0.55 0.14 272)" stroke-width="6" stroke-linecap="round" stroke-dasharray="70 332" style="transform-origin: 100px 112px; animation: ringSpinBack 9s linear infinite;" />
+    <g style="transform-origin: 100px 112px; animation: ringSpin 6s linear infinite;">
+      <circle cx="100" cy="40" r="6.5" fill="oklch(0.5 0.14 250)" />
+    </g>
+    <g style="transform-origin: 100px 112px; animation: ringSpinBack 9s linear infinite;">
+      <circle cx="164" cy="112" r="5" fill="oklch(0.62 0.13 285)" />
+    </g>
 
     <path d="M100 26 C100 26 152 82 152 116 A52 52 0 1 1 48 116 C48 82 100 26 100 26 Z" fill="oklch(0.975 0.01 238)" />
 

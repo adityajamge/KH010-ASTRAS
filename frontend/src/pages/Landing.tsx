@@ -187,7 +187,6 @@ function Landing() {
               Meet the roles
             </a>
           </div>
-          <p className="hero-note">Prototype simulation · synthetic data</p>
 
           <div className="product-panel" aria-label="Canal network preview">
             <div className="panel-header">

@@ -2,6 +2,8 @@ import { Link, NavLink } from "react-router-dom";
 import { UserButton } from "@clerk/clerk-react";
 import { useState } from "react";
 import type { ReactNode } from "react";
+import { AssistantFab } from "./AssistantFab";
+import { AssistantChat } from "./AssistantChat";
 
 interface NavItem {
   label: string;
@@ -63,6 +65,7 @@ export function DashboardShell({
         ? DAM_NAV
         : FARMER_NAV);
   const [language, setLanguage] = useState("en");
+  const [chatOpen, setChatOpen] = useState(false);
 
   return (
     <div className="app">
@@ -123,6 +126,12 @@ export function DashboardShell({
           {children}
         </main>
       </div>
+      <AssistantFab onOpen={() => setChatOpen(true)} />
+      <AssistantChat
+        open={chatOpen}
+        onClose={() => setChatOpen(false)}
+        roleLabel={roleLabel}
+      />
     </div>
   );
 }
