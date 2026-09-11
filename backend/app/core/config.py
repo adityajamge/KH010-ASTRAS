@@ -1,8 +1,8 @@
 from functools import lru_cache
-from typing import Literal
+from typing import Annotated, Literal
 
 from pydantic import field_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 
 class Settings(BaseSettings):
@@ -24,7 +24,10 @@ class Settings(BaseSettings):
     API_V1_PREFIX: str = "/api/v1"
 
     # Comma-separated string in .env, e.g. "http://localhost:5173,http://localhost:3000"
-    BACKEND_CORS_ORIGINS: list[str] = ["http://localhost:5173"]
+    # NoDecode: these are plain comma-separated strings, not JSON arrays —
+    # pydantic-settings otherwise tries to JSON-decode any list[str] field
+    # read from .env before the field_validator below ever runs.
+    BACKEND_CORS_ORIGINS: Annotated[list[str], NoDecode] = ["http://localhost:5173"]
 
     # Neon Postgres (https://console.neon.tech). Use the direct (non-pooled)
     # connection string — this app is a long-lived server, not a
@@ -36,13 +39,13 @@ class Settings(BaseSettings):
     # Empty secret = auth endpoints return 503 until configured.
     CLERK_SECRET_KEY: str = ""
     # Authorized parties (frontend origins) accepted in session tokens.
-    CLERK_AUTHORIZED_PARTIES: list[str] = ["http://localhost:5173"]
+    CLERK_AUTHORIZED_PARTIES: Annotated[list[str], NoDecode] = ["http://localhost:5173"]
 
-    @field_validator("BACKEND_CORS_ORIGINS", mode="before")
+    @field_validator("BACKEND_CORS_ORIGINS", "CLERK_AUTHORIZED_PARTIES", mode="before")
     @classmethod
-    def split_cors_origins(cls, value: str | list[str]) -> list[str]:
+    def split_comma_separated(cls, value: str | list[str]) -> list[str]:
         if isinstance(value, str):
-            return [origin.strip() for origin in value.split(",") if origin.strip()]
+            return [item.strip() for item in value.split(",") if item.strip()]
         return value
 
 
