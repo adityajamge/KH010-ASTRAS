@@ -9,6 +9,7 @@ import time
 from dataclasses import dataclass
 
 from clerk_backend_api import Clerk
+from clerk_backend_api.security.types import AuthenticateRequestOptions
 from fastapi import Depends, HTTPException, Request, status
 
 from app.core.config import settings
@@ -54,7 +55,10 @@ async def get_current_user(request: Request) -> AuthUser:
     """Verify the Clerk session token; 401 when missing/invalid."""
     clerk = _clerk_client()
     state = clerk.authenticate_request(
-        request, authorized_parties=settings.CLERK_AUTHORIZED_PARTIES or None
+        request,
+        AuthenticateRequestOptions(
+            authorized_parties=settings.CLERK_AUTHORIZED_PARTIES or None
+        ),
     )
     if not state.is_signed_in or not state.payload:
         raise HTTPException(
