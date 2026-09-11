@@ -29,6 +29,28 @@ def get_twilio_client():
     return Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
 
 
+def _public_url(request: Request) -> str:
+    """Reconstruct the URL Twilio actually signed.
+
+    Behind ngrok (or any reverse proxy), Twilio calls the public
+    ``https://...`` URL, but ngrok forwards plain HTTP to uvicorn on
+    localhost — without ``--proxy-headers``, uvicorn reports the scheme as
+    ``http`` and Twilio's signature (computed over the ``https://`` URL) can
+    never match ``request.url``. Trust the standard ``X-Forwarded-*``
+    headers the proxy sets instead. This can't weaken validation: forging
+    these headers still can't produce a valid signature without the real
+    Twilio auth token.
+    """
+    proto = request.headers.get("x-forwarded-proto", request.url.scheme)
+    host = request.headers.get("x-forwarded-host") or request.headers.get(
+        "host", request.url.netloc
+    )
+    url = f"{proto}://{host}{request.url.path}"
+    if request.url.query:
+        url += f"?{request.url.query}"
+    return url
+
+
 async def validate_signature(request: Request, form: dict) -> bool:
     """Verify the ``X-Twilio-Signature`` header against the request.
 
@@ -41,7 +63,7 @@ async def validate_signature(request: Request, form: dict) -> bool:
 
     signature = request.headers.get("X-Twilio-Signature", "")
     validator = RequestValidator(settings.TWILIO_AUTH_TOKEN)
-    return validator.validate(str(request.url), form, signature)
+    return validator.validate(_public_url(request), form, signature)
 
 
 def send_whatsapp(to_phone: str, body: str) -> None:
