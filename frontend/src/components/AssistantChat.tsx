@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useAuth } from "@clerk/clerk-react";
 import { WaterDropLogo } from "./AssistantFab";
 import { useLanguage } from "../lib/i18n";
+import { ApiError, chatWithAssistant, type AssistantChatMessage } from "../lib/api";
 
 interface ChatMessage {
   id: number;
@@ -16,8 +18,9 @@ const EMPTY_MESSAGE_KEY: Record<string, string> = {
 
 /**
  * Right-side assistant chat panel. Slides in when the water-drop logo is
- * clicked. No LLM key yet: messages stay local and the assistant replies
- * with a not-connected notice.
+ * clicked. Talks to the backend's LangGraph-orchestrated assistant; chat
+ * history lives only in this component's state (no server-side memory —
+ * each request resends the visible turns).
  */
 export function AssistantChat({
   open,
@@ -29,9 +32,11 @@ export function AssistantChat({
   roleLabel: string;
 }) {
   const { t } = useLanguage();
+  const { getToken } = useAuth();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [draft, setDraft] = useState("");
   const [nextId, setNextId] = useState(1);
+  const [sending, setSending] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
@@ -54,21 +59,31 @@ export function AssistantChat({
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight });
   }, [messages, open]);
 
-  function handleSend(event: FormEvent) {
+  async function handleSend(event: FormEvent) {
     event.preventDefault();
     const text = draft.trim();
-    if (!text) return;
-    const userMsg: ChatMessage = { id: nextId, from: "user", text };
-    const reply: ChatMessage = {
-      id: nextId + 1,
-      from: "assistant",
-      text: t(
-        "The assistant isn't connected yet — chat answers will appear here once the language model is configured.",
-      ),
-    };
-    setNextId(nextId + 2);
-    setMessages((prev) => [...prev, userMsg, reply]);
+    if (!text || sending) return;
+
+    const history: AssistantChatMessage[] = messages.map((m) => ({
+      role: m.from,
+      content: m.text,
+    }));
+    const userId = nextId;
+    setMessages((prev) => [...prev, { id: userId, from: "user", text }]);
+    setNextId(userId + 2);
     setDraft("");
+    setSending(true);
+    try {
+      const token = await getToken();
+      if (!token) throw new Error(t("Could not verify your session."));
+      const { reply } = await chatWithAssistant(token, text, history);
+      setMessages((prev) => [...prev, { id: userId + 1, from: "assistant", text: reply }]);
+    } catch (err) {
+      const errText = err instanceof ApiError ? err.message : t("Something went wrong. Please try again.");
+      setMessages((prev) => [...prev, { id: userId + 1, from: "assistant", text: errText }]);
+    } finally {
+      setSending(false);
+    }
   }
 
   return (
@@ -102,14 +117,21 @@ export function AssistantChat({
             </p>
           </div>
         ) : (
-          messages.map((msg) => (
-            <div
-              key={msg.id}
-              className={`assistant-msg${msg.from === "user" ? " user" : ""}`}
-            >
-              <p>{msg.text}</p>
-            </div>
-          ))
+          <>
+            {messages.map((msg) => (
+              <div
+                key={msg.id}
+                className={`assistant-msg${msg.from === "user" ? " user" : ""}`}
+              >
+                <p>{msg.text}</p>
+              </div>
+            ))}
+            {sending && (
+              <div className="assistant-msg" aria-live="polite">
+                <p>{t("Thinking…")}</p>
+              </div>
+            )}
+          </>
         )}
       </div>
 
@@ -121,13 +143,14 @@ export function AssistantChat({
           placeholder={t("Ask about your water…")}
           aria-label={t("Chat message")}
           onChange={(e) => setDraft(e.target.value)}
+          disabled={sending}
           tabIndex={open ? 0 : -1}
         />
         <button
           type="submit"
           className="assistant-chat-send"
           aria-label={t("Send message")}
-          disabled={!draft.trim()}
+          disabled={!draft.trim() || sending}
           tabIndex={open ? 0 : -1}
         >
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">

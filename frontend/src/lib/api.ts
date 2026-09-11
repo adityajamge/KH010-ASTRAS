@@ -367,6 +367,22 @@ export function acceptProposal(token: string): Promise<AcceptResult> {
   return apiPost<AcceptResult>("/api/v1/mediation/accept", token, {});
 }
 
+// ---------- Assistant chat ----------
+
+export interface AssistantChatMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
+/** POST {API_URL}/api/v1/assistant/chat — stateless; caller resends history. */
+export function chatWithAssistant(
+  token: string,
+  message: string,
+  history: AssistantChatMessage[],
+): Promise<{ reply: string }> {
+  return apiPost<{ reply: string }>("/api/v1/assistant/chat", token, { message, history });
+}
+
 // ---------- Dam dashboard (live backend, no mock data) ----------
 
 export interface DamStatCard {

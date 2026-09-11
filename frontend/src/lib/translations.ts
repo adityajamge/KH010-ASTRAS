@@ -91,6 +91,7 @@ const hi: Record<string, string> = {
   "Ask about reservoir levels, releases, or supply planning.":
     "जलाशय स्तर, निर्गमन, या आपूर्ति योजना के बारे में पूछें।",
   "Ask about your water status.": "अपनी पानी की स्थिति के बारे में पूछें।",
+  "Thinking…": "सोच रहा है…",
   "The assistant isn't connected yet — chat answers will appear here once the language model is configured.":
     "सहायक अभी कनेक्ट नहीं है — भाषा मॉडल कॉन्फ़िगर होने पर चैट के उत्तर यहां दिखाई देंगे।",
 
@@ -500,6 +501,7 @@ const mr: Record<string, string> = {
   "Ask about reservoir levels, releases, or supply planning.":
     "जलाशयाची पातळी, विसर्ग, किंवा पुरवठा नियोजनाबद्दल विचारा.",
   "Ask about your water status.": "तुमच्या पाण्याच्या स्थितीबद्दल विचारा.",
+  "Thinking…": "विचार करत आहे…",
   "The assistant isn't connected yet — chat answers will appear here once the language model is configured.":
     "सहाय्यक अजून कनेक्ट झालेला नाही — भाषा मॉडेल कॉन्फिगर झाल्यावर चॅट उत्तरे इथे दिसतील.",
 

@@ -41,6 +41,10 @@ class Settings(BaseSettings):
     # Authorized parties (frontend origins) accepted in session tokens.
     CLERK_AUTHORIZED_PARTIES: Annotated[list[str], NoDecode] = ["http://localhost:5173"]
 
+    # Anthropic API (https://console.anthropic.com). Empty = assistant chat
+    # endpoint returns 503 until configured.
+    ANTHROPIC_API_KEY: str = ""
+
     @field_validator("BACKEND_CORS_ORIGINS", "CLERK_AUTHORIZED_PARTIES", mode="before")
     @classmethod
     def split_comma_separated(cls, value: str | list[str]) -> list[str]:
