@@ -10,7 +10,10 @@ class Farmer(Base, TimestampMixin):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(120))
-    village: Mapped[str] = mapped_column(String(120))
+    # Links this farmer row to their Clerk account, the same way dam_id is
+    # read from Clerk publicMetadata for dam_operator/jal_vigyani.
+    clerk_user_id: Mapped[str] = mapped_column(String(191))
+    village_id: Mapped[int] = mapped_column(ForeignKey("villages.id"))
     phone: Mapped[str] = mapped_column(String(20))
     canal_id: Mapped[int | None] = mapped_column(
         ForeignKey("canals.id", ondelete="SET NULL"), nullable=True

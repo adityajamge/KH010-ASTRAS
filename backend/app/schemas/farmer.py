@@ -6,7 +6,8 @@ from app.schemas.common import TimestampedRead
 
 class FarmerCreate(BaseModel):
     name: str
-    village: str
+    clerk_user_id: str
+    village_id: int
     phone: str
     canal_id: int | None = None
     field_id: int | None = None
@@ -14,7 +15,8 @@ class FarmerCreate(BaseModel):
 
 class FarmerRead(TimestampedRead):
     name: str
-    village: str
+    clerk_user_id: str
+    village_id: int
     phone: str
     canal_id: int | None
     field_id: int | None

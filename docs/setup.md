@@ -80,9 +80,12 @@ Key env vars (see `frontend/.env.example`):
    edit **Public metadata** to one of:
    ```json
    { "role": "farmer" }
-   { "role": "jal_vigyani" }
-   { "role": "dam_operator" }
+   { "role": "jal_vigyani", "dam_id": 1 }
+   { "role": "dam_operator", "dam_id": 1 }
    ```
+   `dam_operator` and `jal_vigyani` also need `dam_id` — the shared dam
+   (see `dams` table) they're assigned to. For this hackathon there is a
+   single seeded dam, id `1` ("Rampur Dam"), so both roles use `dam_id: 1`.
 
 How it works:
 
@@ -90,11 +93,11 @@ How it works:
   guards `/app/farmer`, `/app/jal-vigyani`, `/app/dam` — signed-out users go
   to sign-in, wrong/missing roles go to `/no-access`.
 - Backend: `app/core/auth.py` verifies the Clerk session token (official
-  `clerk-backend-api` SDK) and reads the role from the user's public metadata
-  (60s cache). `GET /api/v1/me` returns `{user_id, role}`; guards
-  (`require_farmer`, `require_jal_vigyani`, `require_dam_operator`) return
-  401 when signed out, 403 for the wrong role, 503 when `CLERK_SECRET_KEY`
-  is not configured.
+  `clerk-backend-api` SDK) and reads role + dam_id from the user's public
+  metadata (60s cache). `GET /api/v1/me` returns `{user_id, role, dam_id}`;
+  guards (`require_farmer`, `require_jal_vigyani`, `require_dam_operator`)
+  return 401 when signed out, 403 for the wrong role, 503 when
+  `CLERK_SECRET_KEY` is not configured.
 
 ## Health checks
 
