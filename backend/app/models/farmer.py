@@ -9,10 +9,12 @@ class Farmer(Base, TimestampMixin):
     __tablename__ = "farmers"
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    # Clerk user id (the "sub" claim) — links this profile to the signed-in
+    # farmer so the onboarding form only ever runs once per account.
+    clerk_user_id: Mapped[str] = mapped_column(String(191), unique=True, index=True)
     name: Mapped[str] = mapped_column(String(120))
-    # Links this farmer row to their Clerk account, the same way dam_id is
-    # read from Clerk publicMetadata for dam_operator/jal_vigyani.
-    clerk_user_id: Mapped[str] = mapped_column(String(191))
+    # Every farmer is auto-assigned to village id 1 at onboarding — there is
+    # no village picker in the UI (single-village prototype).
     village_id: Mapped[int] = mapped_column(ForeignKey("villages.id"))
     phone: Mapped[str] = mapped_column(String(20))
     canal_id: Mapped[int | None] = mapped_column(
