@@ -8,6 +8,8 @@
  * Future scope: clicking opens the assistant chat window. No LLM key yet,
  * so `onOpen` defaults to a no-op.
  */
+import { useLanguage } from "../lib/i18n";
+
 export function WaterDropLogo({ size = 72 }: { size?: number }) {
   return (
     <svg
@@ -81,12 +83,13 @@ export function WaterDropLogo({ size = 72 }: { size?: number }) {
 }
 
 export function AssistantFab({ onOpen }: { onOpen?: () => void }) {
+  const { t } = useLanguage();
   return (
     <button
       type="button"
       className="assistant-fab"
-      aria-label="Open assistant chat"
-      title="Open assistant chat"
+      aria-label={t("Open assistant chat")}
+      title={t("Open assistant chat")}
       onClick={onOpen}
     >
       <WaterDropLogo size={72} />

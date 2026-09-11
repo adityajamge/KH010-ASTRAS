@@ -3,7 +3,8 @@ import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { useAuth } from "@clerk/clerk-react";
 import { DashboardShell, DAM_NAV } from "../../components/DashboardShell";
 import { StatGrid } from "../../components/dashboard/StatGrid";
-import { Pill } from "../../components/dashboard/Pill";
+import { Pill, statusTone } from "../../components/dashboard/Pill";
+import { useLanguage } from "../../lib/i18n";
 import {
   ApiError,
   getDamDashboard,
@@ -21,6 +22,7 @@ interface DamData {
 
 function useDamData(): DamData {
   const { getToken } = useAuth();
+  const { t } = useLanguage();
   const [summary, setSummary] = useState<DamDashboardSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -32,7 +34,7 @@ function useDamData(): DamData {
     (async () => {
       try {
         const token = await getToken();
-        if (!token) throw new Error("Could not verify your session. Please sign in again.");
+        if (!token) throw new Error(t("Could not verify your session. Please sign in again."));
         const data = await getDamDashboard(token);
         if (!cancelled) setSummary(data);
       } catch (err) {
@@ -40,7 +42,7 @@ function useDamData(): DamData {
           setError(
             err instanceof ApiError
               ? err.message
-              : "Could not reach JalSetu. Please try again.",
+              : t("Could not reach JalSetu. Please try again."),
           );
         }
       } finally {
@@ -50,7 +52,7 @@ function useDamData(): DamData {
     return () => {
       cancelled = true;
     };
-  }, [getToken]);
+  }, [getToken, t]);
 
   useEffect(() => {
     reload();
@@ -60,11 +62,12 @@ function useDamData(): DamData {
 }
 
 function PageState({ loading, error, onRetry }: { loading: boolean; error: string | null; onRetry: () => void }) {
+  const { t } = useLanguage();
   if (loading) {
     return (
       <div className="dash-block">
         <div className="card">
-          <p className="hero-note">Loading supply state…</p>
+          <p className="hero-note">{t("Loading supply state…")}</p>
         </div>
       </div>
     );
@@ -76,7 +79,7 @@ function PageState({ loading, error, onRetry }: { loading: boolean; error: strin
           <p className="negotiation-reason">{error}</p>
           <div className="home-card-actions">
             <button type="button" className="btn btn-secondary btn-xs" onClick={onRetry}>
-              Try again
+              {t("Try again")}
             </button>
           </div>
         </div>
@@ -93,10 +96,11 @@ function fmtNum(value: number): string {
 }
 
 function ReservoirPanel({ chain }: { chain?: FlowChainRead }) {
+  const { t } = useLanguage();
   if (!chain) {
     return (
       <div className="card">
-        <p className="hero-note">Loading flow chain…</p>
+        <p className="hero-note">{t("Loading flow chain…")}</p>
       </div>
     );
   }
@@ -106,7 +110,7 @@ function ReservoirPanel({ chain }: { chain?: FlowChainRead }) {
         {chain.stages.map((stage, i) => (
           <div className="flow-stage" key={stage.label}>
             <div className="flow-stage-head">
-              <span className="flow-stage-label">{stage.label}</span>
+              <span className="flow-stage-label">{t(stage.label)}</span>
               <span className="flow-stage-value">{fmtNum(stage.value)}</span>
             </div>
             {stage.note && <p className="flow-stage-note">{stage.note}</p>}
@@ -123,7 +127,7 @@ function ReservoirPanel({ chain }: { chain?: FlowChainRead }) {
       )}
       {!chain.alert && (
         <p style={{ margin: 0, color: "var(--ink-muted)", fontSize: 14 }}>
-          Differences within tolerance — no canal-level investigation needed.
+          {t("Differences within tolerance — no canal-level investigation needed.")}
         </p>
       )}
     </div>
@@ -132,22 +136,24 @@ function ReservoirPanel({ chain }: { chain?: FlowChainRead }) {
 
 function RainfallPanel({ data }: { data: DamData }) {
   const { summary, loading, error, reload } = data;
+  const { t, tf } = useLanguage();
   if (loading || error || !summary) {
     return <PageState loading={loading} error={error} onRetry={reload} />;
   }
   return (
     <div className="card">
       <div className="negotiation-row">
-        <span>Last 24 hours</span>
+        <span>{t("Last 24 hours")}</span>
         <span className="val">{fmtNum(summary.rainfall.last_24h)} mm</span>
       </div>
       <div className="negotiation-row">
-        <span>Catchment affected</span>
+        <span>{t("Catchment affected")}</span>
         <span className="val">{summary.rainfall.catchment}</span>
       </div>
-      <p className="negotiation-reason">Forecast: {summary.rainfall.forecast}. Rainfall triggers a
-        recalculation rather than automatically reducing every farmer&apos;s
-        requirement.
+      <p className="negotiation-reason">
+        {tf("Forecast: {forecast}. Rainfall triggers a recalculation rather than automatically reducing every farmer's requirement.", {
+          forecast: summary.rainfall.forecast,
+        })}
       </p>
     </div>
   );
@@ -155,13 +161,14 @@ function RainfallPanel({ data }: { data: DamData }) {
 
 function ReleaseTable({ data }: { data: DamData }) {
   const { summary, loading, error, reload } = data;
+  const { t } = useLanguage();
   if (loading || error || !summary) {
     return <PageState loading={loading} error={error} onRetry={reload} />;
   }
   if (summary.releases.length === 0) {
     return (
       <div className="card">
-        <p className="negotiation-reason">No canals found for this dam.</p>
+        <p className="negotiation-reason">{t("No canals found for this dam.")}</p>
       </div>
     );
   }
@@ -170,13 +177,13 @@ function ReleaseTable({ data }: { data: DamData }) {
       <table className="dtable">
         <thead>
           <tr>
-            <th>Canal</th>
-            <th className="num">Requested</th>
-            <th className="num">Approved</th>
-            <th className="num">Released</th>
-            <th className="num">Received</th>
-            <th className="num">Difference</th>
-            <th>Status</th>
+            <th>{t("Canal")}</th>
+            <th className="num">{t("Requested")}</th>
+            <th className="num">{t("Approved")}</th>
+            <th className="num">{t("Released")}</th>
+            <th className="num">{t("Received")}</th>
+            <th className="num">{t("Difference")}</th>
+            <th>{t("Status")}</th>
           </tr>
         </thead>
         <tbody>
@@ -189,7 +196,7 @@ function ReleaseTable({ data }: { data: DamData }) {
               <td className="num">{fmtNum(row.received)}</td>
               <td className="num">{fmtNum(row.difference)}</td>
               <td>
-                <Pill>{row.status}</Pill>
+                <Pill tone={statusTone(row.status)}>{t(row.status)}</Pill>
               </td>
             </tr>
           ))}
@@ -201,6 +208,7 @@ function ReleaseTable({ data }: { data: DamData }) {
 
 function PublishSupplyForm({ data }: { data: DamData }) {
   const { getToken } = useAuth();
+  const { t } = useLanguage();
   const [storage, setStorage] = useState("");
   const [inflow, setInflow] = useState("");
   const [outflow, setOutflow] = useState("");
@@ -224,20 +232,20 @@ function PublishSupplyForm({ data }: { data: DamData }) {
       rainfall_last_24h: num(rainfall),
     };
     if (Object.values(parsed).some((v) => v !== undefined && !Number.isFinite(v))) {
-      setError("Numbers only, please.");
+      setError(t("Numbers only, please."));
       return;
     }
     if (
       Object.values(parsed).every((v) => v === undefined) &&
       forecast.trim() === ""
     ) {
-      setError("Change at least one field.");
+      setError(t("Change at least one field."));
       return;
     }
     setSubmitting(true);
     try {
       const token = await getToken();
-      if (!token) throw new Error("Could not verify your session. Please sign in again.");
+      if (!token) throw new Error(t("Could not verify your session. Please sign in again."));
       await publishSupplyState(token, {
         ...parsed,
         ...(forecast.trim() ? { rainfall_forecast: forecast.trim() } : {}),
@@ -246,7 +254,7 @@ function PublishSupplyForm({ data }: { data: DamData }) {
       data.reload();
     } catch (err) {
       setError(
-        err instanceof ApiError ? err.message : "Could not publish. Please try again.",
+        err instanceof ApiError ? err.message : t("Could not publish. Please try again."),
       );
     } finally {
       setSubmitting(false);
@@ -257,62 +265,62 @@ function PublishSupplyForm({ data }: { data: DamData }) {
     <div className="card">
       <form className="form-grid" onSubmit={handleSubmit} noValidate>
         <div className="form-field">
-          <label htmlFor="pub-storage">Storage volume (units)</label>
+          <label htmlFor="pub-storage">{t("Storage volume (units)")}</label>
           <input
             id="pub-storage"
             type="number"
             value={storage}
-            placeholder="e.g. 5000"
+            placeholder={t("e.g. 5000")}
             onChange={(e) => setStorage(e.target.value)}
           />
         </div>
         <div className="form-field">
-          <label htmlFor="pub-inflow">Inflow (units/day)</label>
+          <label htmlFor="pub-inflow">{t("Inflow (units/day)")}</label>
           <input
             id="pub-inflow"
             type="number"
             value={inflow}
-            placeholder="e.g. 850"
+            placeholder={t("e.g. 850")}
             onChange={(e) => setInflow(e.target.value)}
           />
         </div>
         <div className="form-field">
-          <label htmlFor="pub-outflow">Outflow (units/day)</label>
+          <label htmlFor="pub-outflow">{t("Outflow (units/day)")}</label>
           <input
             id="pub-outflow"
             type="number"
             value={outflow}
-            placeholder="e.g. 700"
+            placeholder={t("e.g. 700")}
             onChange={(e) => setOutflow(e.target.value)}
           />
         </div>
         <div className="form-field">
-          <label htmlFor="pub-level">Reservoir level (m)</label>
+          <label htmlFor="pub-level">{t("Reservoir level (m)")}</label>
           <input
             id="pub-level"
             type="number"
             step="0.1"
             value={level}
-            placeholder="e.g. 118.4"
+            placeholder={t("e.g. 118.4")}
             onChange={(e) => setLevel(e.target.value)}
           />
         </div>
         <div className="form-field">
-          <label htmlFor="pub-rain">Rainfall last 24h (mm)</label>
+          <label htmlFor="pub-rain">{t("Rainfall last 24h (mm)")}</label>
           <input
             id="pub-rain"
             type="number"
             value={rainfall}
-            placeholder="e.g. 18"
+            placeholder={t("e.g. 18")}
             onChange={(e) => setRainfall(e.target.value)}
           />
         </div>
         <div className="form-field">
-          <label htmlFor="pub-forecast">Rainfall forecast</label>
+          <label htmlFor="pub-forecast">{t("Rainfall forecast")}</label>
           <input
             id="pub-forecast"
             value={forecast}
-            placeholder="e.g. Medium — 12mm expected"
+            placeholder={t("e.g. Medium — 12mm expected")}
             onChange={(e) => setForecast(e.target.value)}
           />
         </div>
@@ -323,12 +331,12 @@ function PublishSupplyForm({ data }: { data: DamData }) {
         )}
         {saved && (
           <p className="field-hint" style={{ gridColumn: "1 / -1" }}>
-            Supply state published.
+            {t("Supply state published.")}
           </p>
         )}
         <div className="form-actions" style={{ gridColumn: "1 / -1" }}>
           <button type="submit" className="btn btn-primary" disabled={submitting}>
-            {submitting ? "Publishing…" : "Publish update"}
+            {submitting ? t("Publishing…") : t("Publish update")}
           </button>
         </div>
       </form>
@@ -338,6 +346,7 @@ function PublishSupplyForm({ data }: { data: DamData }) {
 
 function DashboardHome({ data }: { data: DamData }) {
   const { summary, loading, error, reload } = data;
+  const { t } = useLanguage();
   if (loading || error || !summary) {
     return <PageState loading={loading} error={error} onRetry={reload} />;
   }
@@ -346,8 +355,10 @@ function DashboardHome({ data }: { data: DamData }) {
       <div className="dash-block">
         <StatGrid
           stats={summary.stats.map((s) => ({
-            label: s.label,
-            value: s.value,
+            label: t(s.label),
+            // "Dam Status" is the one stat whose value is itself a status
+            // word (Normal/Watch/Critical/Unknown), not a formatted number.
+            value: s.label === "Dam Status" ? t(s.value) : s.value,
             tone: s.tone ?? undefined,
           }))}
         />
@@ -356,14 +367,14 @@ function DashboardHome({ data }: { data: DamData }) {
       <div className="dash-grid-2">
         <div className="dash-block">
           <div className="dash-block-head">
-            <h3>Reservoir monitoring</h3>
+            <h3>{t("Reservoir monitoring")}</h3>
           </div>
           <ReservoirPanel chain={summary.flow_chain} />
         </div>
 
         <div className="dash-block">
           <div className="dash-block-head">
-            <h3>Rainfall monitoring</h3>
+            <h3>{t("Rainfall monitoring")}</h3>
           </div>
           <RainfallPanel data={data} />
         </div>
@@ -371,15 +382,15 @@ function DashboardHome({ data }: { data: DamData }) {
 
       <div className="dash-block">
         <div className="dash-block-head">
-          <h3>Canal-wise release</h3>
+          <h3>{t("Canal-wise release")}</h3>
         </div>
         <ReleaseTable data={data} />
       </div>
 
       <div className="dash-block">
         <div className="dash-block-head">
-          <h3>Publish supply update</h3>
-          <p>Numbers you publish here drive every dashboard immediately.</p>
+          <h3>{t("Publish supply update")}</h3>
+          <p>{t("Numbers you publish here drive every dashboard immediately.")}</p>
         </div>
         <PublishSupplyForm data={data} />
       </div>
@@ -424,14 +435,15 @@ const SECTION_META: Record<string, { title: string; subtitle: string }> = {
 
 export function DamOperatorDashboardPage() {
   const location = useLocation();
+  const { t } = useLanguage();
   const meta = SECTION_META[location.pathname] ?? SECTION_META["/app/dam"];
   const data = useDamData();
 
   return (
     <DashboardShell
       roleLabel="Dam Operator"
-      title={meta.title}
-      subtitle={meta.subtitle}
+      title={t(meta.title)}
+      subtitle={t(meta.subtitle)}
       navItems={DAM_NAV}
     >
       <Routes>
@@ -455,8 +467,7 @@ export function DamOperatorDashboardPage() {
             <div className="dash-block">
               <div className="card">
                 <p style={{ margin: 0, color: "var(--ink-muted)", fontSize: 14 }}>
-                  Contact the system administrator for release approvals or
-                  emergency alerts.
+                  {t("Contact the system administrator for release approvals or emergency alerts.")}
                 </p>
               </div>
             </div>

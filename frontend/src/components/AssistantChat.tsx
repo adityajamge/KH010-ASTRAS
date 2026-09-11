@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { WaterDropLogo } from "./AssistantFab";
+import { useLanguage } from "../lib/i18n";
 
 interface ChatMessage {
   id: number;
@@ -7,14 +8,11 @@ interface ChatMessage {
   text: string;
 }
 
-const EMPTY_MESSAGES: Record<string, string> = {
+const EMPTY_MESSAGE_KEY: Record<string, string> = {
   Farmer: "Ask about your allocation, schedule, or why your water changed.",
   "Jal Vigyani": "Ask about canal flows, conflicts, or anomalies on your network.",
   "Dam Operator": "Ask about reservoir levels, releases, or supply planning.",
 };
-
-const STUB_REPLY =
-  "The assistant isn't connected yet — chat answers will appear here once the language model is configured.";
 
 /**
  * Right-side assistant chat panel. Slides in when the water-drop logo is
@@ -30,6 +28,7 @@ export function AssistantChat({
   onClose: () => void;
   roleLabel: string;
 }) {
+  const { t } = useLanguage();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [draft, setDraft] = useState("");
   const [nextId, setNextId] = useState(1);
@@ -60,7 +59,13 @@ export function AssistantChat({
     const text = draft.trim();
     if (!text) return;
     const userMsg: ChatMessage = { id: nextId, from: "user", text };
-    const reply: ChatMessage = { id: nextId + 1, from: "assistant", text: STUB_REPLY };
+    const reply: ChatMessage = {
+      id: nextId + 1,
+      from: "assistant",
+      text: t(
+        "The assistant isn't connected yet — chat answers will appear here once the language model is configured.",
+      ),
+    };
     setNextId(nextId + 2);
     setMessages((prev) => [...prev, userMsg, reply]);
     setDraft("");
@@ -69,17 +74,17 @@ export function AssistantChat({
   return (
     <aside
       className={`assistant-chat${open ? " open" : ""}`}
-      aria-label="Assistant chat"
+      aria-label={t("Assistant chat")}
       aria-hidden={!open}
     >
       <div className="assistant-chat-head">
         <div>
-          <p className="eyebrow">JalSetu Assistant</p>
+          <p className="eyebrow">{t("JalSetu Assistant")}</p>
         </div>
         <button
           type="button"
           className="assistant-chat-close"
-          aria-label="Close assistant chat"
+          aria-label={t("Close assistant chat")}
           onClick={onClose}
           tabIndex={open ? 0 : -1}
         >
@@ -91,9 +96,9 @@ export function AssistantChat({
         {messages.length === 0 ? (
           <div className="assistant-chat-empty">
             <WaterDropLogo size={112} />
-            <p className="assistant-chat-empty-title">How can I help?</p>
+            <p className="assistant-chat-empty-title">{t("How can I help?")}</p>
             <p className="assistant-chat-empty-sub">
-              {EMPTY_MESSAGES[roleLabel] ?? "Ask about your water status."}
+              {t(EMPTY_MESSAGE_KEY[roleLabel] ?? "Ask about your water status.")}
             </p>
           </div>
         ) : (
@@ -113,15 +118,15 @@ export function AssistantChat({
           ref={inputRef}
           className="assistant-chat-input"
           value={draft}
-          placeholder="Ask about your water…"
-          aria-label="Chat message"
+          placeholder={t("Ask about your water…")}
+          aria-label={t("Chat message")}
           onChange={(e) => setDraft(e.target.value)}
           tabIndex={open ? 0 : -1}
         />
         <button
           type="submit"
           className="assistant-chat-send"
-          aria-label="Send message"
+          aria-label={t("Send message")}
           disabled={!draft.trim()}
           tabIndex={open ? 0 : -1}
         >

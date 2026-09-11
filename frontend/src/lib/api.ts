@@ -488,6 +488,34 @@ export function getFarmerAllocations(
   );
 }
 
+export interface FarmerCanalRow {
+  farmer_id: number;
+  farmer_name: string;
+  village: string;
+  phone: string;
+  canal_id: number | null;
+  canal_name: string | null;
+}
+
+/** GET {API_URL}/api/v1/jal-vigyani/farmers — unassigned farmers + farmers on this dam's canals. */
+export function getAssignableFarmers(token: string): Promise<FarmerCanalRow[]> {
+  return authedRequest<FarmerCanalRow[]>("/api/v1/jal-vigyani/farmers", token);
+}
+
+/** PATCH {API_URL}/api/v1/jal-vigyani/farmers/{farmerId}/canal — assign (or null to unassign) a farmer's canal. */
+export function assignFarmerCanal(
+  token: string,
+  farmerId: number,
+  canalId: number | null,
+): Promise<FarmerCanalRow> {
+  return apiPost<FarmerCanalRow>(
+    `/api/v1/jal-vigyani/farmers/${farmerId}/canal`,
+    token,
+    { canal_id: canalId },
+    "PATCH",
+  );
+}
+
 export type DeliveryStatus =
   | "on_track"
   | "complete"

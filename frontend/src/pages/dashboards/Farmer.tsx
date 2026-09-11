@@ -9,7 +9,10 @@ import {
 } from "react-router-dom";
 import { useAuth, useUser } from "@clerk/clerk-react";
 import { DashboardShell, FARMER_NAV } from "../../components/DashboardShell";
-import { Pill } from "../../components/dashboard/Pill";
+import { Pill, statusTone } from "../../components/dashboard/Pill";
+import { SlotTimeline, groupSchedulesByDate, useNow } from "../../components/dashboard/SlotTimeline";
+import { fmtQty, fmtTime, formatStatus } from "../../lib/format";
+import { useLanguage } from "../../lib/i18n";
 import {
   ApiError,
   OBJECTION_REASON_BY_LABEL,
@@ -29,29 +32,22 @@ const MONTHS = [
   "Jul", "Aug", "Sept", "Oct", "Nov", "Dec",
 ];
 
-function fmtQty(value: number): string {
-  return Number.isInteger(value) ? String(value) : value.toFixed(2);
-}
-
-/** "2026-09-12" -> "12 Sept" (parsed as local date, no timezone shift). */
-function fmtDate(iso: string): string {
+/** "2026-09-12" -> "12 Sept" (parsed as local date, no timezone shift).
+ * `t` translates just the month abbreviation; the day number stays as-is
+ * (Hindi/Marathi UIs conventionally keep Arabic numerals). */
+function fmtDate(iso: string, t: (key: string) => string): string {
   const [y, m, d] = iso.split("-").map(Number);
   if (!y || !m || !d) return iso;
-  return `${d} ${MONTHS[m - 1]}`;
-}
-
-/** "06:00:00" -> "06:00". */
-function fmtTime(t: string): string {
-  return t.slice(0, 5);
+  return `${d} ${t(MONTHS[m - 1])}`;
 }
 
 /** ISO datetime -> "12 Sept · 10:39" in client-local time. */
-function fmtDateTime(iso: string): string {
+function fmtDateTime(iso: string, t: (key: string) => string): string {
   const dt = new Date(iso);
   if (Number.isNaN(dt.getTime())) return iso;
   const hh = String(dt.getHours()).padStart(2, "0");
   const mm = String(dt.getMinutes()).padStart(2, "0");
-  return `${dt.getDate()} ${MONTHS[dt.getMonth()]} · ${hh}:${mm}`;
+  return `${dt.getDate()} ${t(MONTHS[dt.getMonth()])} · ${hh}:${mm}`;
 }
 
 function useDisplayName(): string {
@@ -75,6 +71,7 @@ interface FarmerData {
 
 function useFarmerData(): FarmerData {
   const { getToken } = useAuth();
+  const { t } = useLanguage();
   const [summary, setSummary] = useState<FarmerDashboardSummary | null>(null);
   const [mediation, setMediation] = useState<MediationView | null>(null);
   const [loading, setLoading] = useState(true);
@@ -87,7 +84,7 @@ function useFarmerData(): FarmerData {
     (async () => {
       try {
         const token = await getToken();
-        if (!token) throw new Error("Could not verify your session. Please sign in again.");
+        if (!token) throw new Error(t("Could not verify your session. Please sign in again."));
         const [dashboard, mediationView] = await Promise.all([
           getFarmerDashboard(token),
           getMediation(token),
@@ -101,7 +98,7 @@ function useFarmerData(): FarmerData {
           setError(
             err instanceof ApiError
               ? err.message
-              : "Could not reach JalSetu. Please try again.",
+              : t("Could not reach JalSetu. Please try again."),
           );
         }
       } finally {
@@ -111,7 +108,7 @@ function useFarmerData(): FarmerData {
     return () => {
       cancelled = true;
     };
-  }, [getToken]);
+  }, [getToken, t]);
 
   useEffect(() => {
     reload();
@@ -121,11 +118,12 @@ function useFarmerData(): FarmerData {
 }
 
 function PageState({ loading, error, onRetry }: { loading: boolean; error: string | null; onRetry: () => void }) {
+  const { t } = useLanguage();
   if (loading) {
     return (
       <div className="dash-block">
         <div className="card">
-          <p className="hero-note">Loading your water status…</p>
+          <p className="hero-note">{t("Loading your water status…")}</p>
         </div>
       </div>
     );
@@ -137,7 +135,7 @@ function PageState({ loading, error, onRetry }: { loading: boolean; error: strin
           <p className="negotiation-reason">{error}</p>
           <div className="home-card-actions">
             <button type="button" className="btn btn-secondary btn-xs" onClick={onRetry}>
-              Try again
+              {t("Try again")}
             </button>
           </div>
         </div>
@@ -155,6 +153,7 @@ function MediationPanel({
   onChanged: () => void;
 }) {
   const { getToken } = useAuth();
+  const { t, tf } = useLanguage();
   const [objecting, setObjecting] = useState(false);
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -165,11 +164,11 @@ function MediationPanel({
     return (
       <div>
         <p className="negotiation-reason">
-          No proposal yet — submit a water request to get your first allocation.
+          {t("No proposal yet — submit a water request to get your first allocation.")}
         </p>
         <div className="home-card-actions">
           <Link className="btn btn-primary btn-xs" to="/app/farmer/request">
-            Request Water
+            {t("Request Water")}
           </Link>
         </div>
       </div>
@@ -183,7 +182,7 @@ function MediationPanel({
     setActionError(null);
     try {
       const token = await getToken();
-      if (!token) throw new Error("Could not verify your session. Please sign in again.");
+      if (!token) throw new Error(t("Could not verify your session. Please sign in again."));
       const out = await fn(token);
       if ("agreement" in out) {
         setAcceptance(out as AcceptResult);
@@ -193,7 +192,7 @@ function MediationPanel({
       onChanged();
     } catch (err) {
       setActionError(
-        err instanceof ApiError ? err.message : "Something went wrong. Please try again.",
+        err instanceof ApiError ? err.message : t("Something went wrong. Please try again."),
       );
     } finally {
       setBusy(false);
@@ -203,27 +202,37 @@ function MediationPanel({
   return (
     <div className="negotiation-panel">
       <div className="negotiation-row">
-        <span>Your request</span>
-        <span className="val">{fmtQty(mediation.requested)} units</span>
+        <span>{t("Your request")}</span>
+        <span className="val">
+          {fmtQty(mediation.requested)} {t("units")}
+        </span>
       </div>
       <div className="negotiation-row">
-        <span>Allocated</span>
+        <span>{t("Allocated")}</span>
         <span className="val">
-          {fmtQty(result?.allocated ?? mediation.allocated)} units
+          {fmtQty(result?.allocated ?? mediation.allocated)} {t("units")}
         </span>
       </div>
       {mediation.reason && (
-        <p className="negotiation-reason">Reason: {mediation.reason}</p>
+        <p className="negotiation-reason">
+          {t("Reason:")} {mediation.reason}
+        </p>
       )}
       {mediation.conflict_code && (
-        <p className="negotiation-reason">Conflict: {mediation.conflict_code}</p>
+        <p className="negotiation-reason">
+          {t("Conflict:")} {mediation.conflict_code}
+        </p>
       )}
 
       {accepted ? (
         <p className="negotiation-reason">
-          Accepted
+          {t("Accepted")}
           {acceptance
-            ? ` — agreement ${acceptance.agreement.agreement_code} recorded (version ${acceptance.agreement.version}).`
+            ? " " +
+              tf("— agreement {code} recorded (version {version}).", {
+                code: acceptance.agreement.agreement_code,
+                version: acceptance.agreement.version,
+              })
             : "."}
         </p>
       ) : !objecting && !result ? (
@@ -234,7 +243,7 @@ function MediationPanel({
             disabled={busy}
             onClick={() => act((token) => acceptProposal(token))}
           >
-            Accept
+            {t("Accept")}
           </button>
           <button
             type="button"
@@ -242,7 +251,7 @@ function MediationPanel({
             disabled={busy}
             onClick={() => setObjecting(true)}
           >
-            Object
+            {t("Object")}
           </button>
         </div>
       ) : (
@@ -260,7 +269,7 @@ function MediationPanel({
                   void act((token) => submitObjection(token, reason));
                 }}
               >
-                {option}
+                {t(option)}
               </button>
             ))}
           </div>
@@ -268,8 +277,11 @@ function MediationPanel({
             <>
               <p className="negotiation-reason">
                 {result.changed
-                  ? `Revised proposal: ${fmtQty(result.allocated)} units (was ${fmtQty(result.previous_allocated)}).`
-                  : "Proposal unchanged — supply and priority constraints leave no room."}
+                  ? tf("Revised proposal: {allocated} units (was {previous}).", {
+                      allocated: fmtQty(result.allocated),
+                      previous: fmtQty(result.previous_allocated),
+                    })
+                  : t("Proposal unchanged — supply and priority constraints leave no room.")}
               </p>
               {result.evidence.length > 0 && (
                 <ul className="plain-list" style={{ marginTop: 12 }}>
@@ -288,7 +300,7 @@ function MediationPanel({
                   disabled={busy}
                   onClick={() => act((token) => acceptProposal(token))}
                 >
-                  Accept
+                  {t("Accept")}
                 </button>
               </div>
             </>
@@ -313,129 +325,132 @@ function MediationPanel({
 
 function DashboardHome({ data }: { data: FarmerData }) {
   const { summary, mediation, loading, error, reload } = data;
+  const now = useNow();
+  const { t } = useLanguage();
   if (loading || error || !summary) {
     return <PageState loading={loading} error={error} onRetry={reload} />;
   }
   const firstSlot = summary.upcoming_schedules[0];
+  const todaysGroup = firstSlot
+    ? groupSchedulesByDate(summary.upcoming_schedules).find((g) => g.date === firstSlot.date) ?? null
+    : null;
 
   return (
     <>
       <div className="home-stats">
         <div className="home-stat">
-          <p className="home-stat-label">Available</p>
+          <p className="home-stat-label">{t("Available")}</p>
           <p className="home-stat-value">{fmtQty(summary.available_water)} L</p>
         </div>
         <div className="home-stat">
-          <p className="home-stat-label">Allocated</p>
+          <p className="home-stat-label">{t("Allocated")}</p>
           <p className="home-stat-value">{fmtQty(summary.allocated_water)} L</p>
         </div>
         <div className="home-stat">
-          <p className="home-stat-label">Remaining</p>
+          <p className="home-stat-label">{t("Remaining")}</p>
           <p className="home-stat-value">{fmtQty(summary.remaining_water)} L</p>
         </div>
       </div>
 
       <div className="home-grid">
-        <section className="home-card" aria-label="Current allocation">
-          <h2>Current Allocation</h2>
+        <section className="home-card" aria-label={t("Current allocation")}>
+          <h2>{t("Current Allocation")}</h2>
           {summary.current_allocation && summary.current_request ? (
             <>
               <p className="home-card-crop">{summary.current_request.crop}</p>
               <p className="home-card-big">
                 {fmtQty(summary.current_allocation.allocated_quantity)} /{" "}
-                {fmtQty(summary.current_request.quantity_requested)} units
+                {fmtQty(summary.current_request.quantity_requested)} {t("units")}
               </p>
               <p className="home-card-meta">
-                {fmtDate(summary.current_allocation.allocation_date)} ·{" "}
+                {fmtDate(summary.current_allocation.allocation_date, t)} ·{" "}
                 {fmtTime(summary.current_allocation.time_start)}–
                 {fmtTime(summary.current_allocation.time_end)}
               </p>
-              <p className="home-card-meta">Canal {summary.canal_name ?? "—"}</p>
-            </>
-          ) : (
-            <p className="negotiation-reason">No allocation yet.</p>
-          )}
-          <div className="home-card-actions">
-            <Link className="btn btn-secondary btn-xs" to="/app/farmer/allocation">
-              View Allocation
-            </Link>
-          </div>
-        </section>
-
-        <section className="home-card" aria-label="JalSetu mediation">
-          <h2>JalSetu Mediation</h2>
-          {mediation && mediation.has_proposal ? (
-            <>
-              <div className="negotiation-row">
-                <span>Your request</span>
-                <span className="val">{fmtQty(mediation.requested)} units</span>
-              </div>
-              <div className="negotiation-row">
-                <span>Allocated</span>
-                <span className="val">{fmtQty(mediation.allocated)} units</span>
-              </div>
-            </>
-          ) : (
-            <p className="negotiation-reason">No proposal yet.</p>
-          )}
-          <div className="home-card-actions">
-            <Link className="btn btn-secondary btn-xs" to="/app/farmer/mediation">
-              Open Mediation
-            </Link>
-          </div>
-        </section>
-
-        <section className="home-card" aria-label="Today's schedule">
-          <h2>Today&apos;s Schedule</h2>
-          {firstSlot ? (
-            <>
-              <div className="timeline">
-                <div className="timeline-row">
-                  <span className="timeline-time">{fmtTime(firstSlot.start_time)}</span>
-                  <span className="timeline-line" aria-hidden="true" />
-                </div>
-                <div className="timeline-marker" aria-hidden="true">
-                  <span className="timeline-drop" />
-                </div>
-                <div className="timeline-row">
-                  <span className="timeline-time">{fmtTime(firstSlot.end_time)}</span>
-                  <span className="timeline-line" aria-hidden="true" />
-                </div>
-              </div>
-              <p className="home-card-meta">Canal {summary.canal_name ?? "—"}</p>
               <p className="home-card-meta">
-                {fmtDate(firstSlot.date)} · {firstSlot.status}
+                {t("Canal")} {summary.canal_name ?? "—"}
               </p>
             </>
           ) : (
-            <p className="negotiation-reason">No slots scheduled yet.</p>
+            <p className="negotiation-reason">{t("No allocation yet.")}</p>
           )}
           <div className="home-card-actions">
-            <Link className="btn btn-secondary btn-xs" to="/app/farmer/schedule">
-              View Schedule
+            <Link className="btn btn-secondary btn-xs" to="/app/farmer/allocation">
+              {t("View Allocation")}
             </Link>
           </div>
         </section>
 
-        <section className="home-card" aria-label="Delivery status">
-          <h2>Delivery Status</h2>
+        <section className="home-card" aria-label={t("JalSetu mediation")}>
+          <h2>{t("JalSetu Mediation")}</h2>
+          {mediation && mediation.has_proposal ? (
+            <>
+              <div className="negotiation-row">
+                <span>{t("Your request")}</span>
+                <span className="val">
+                  {fmtQty(mediation.requested)} {t("units")}
+                </span>
+              </div>
+              <div className="negotiation-row">
+                <span>{t("Allocated")}</span>
+                <span className="val">
+                  {fmtQty(mediation.allocated)} {t("units")}
+                </span>
+              </div>
+            </>
+          ) : (
+            <p className="negotiation-reason">{t("No proposal yet.")}</p>
+          )}
+          <div className="home-card-actions">
+            <Link className="btn btn-secondary btn-xs" to="/app/farmer/mediation">
+              {t("Open Mediation")}
+            </Link>
+          </div>
+        </section>
+
+        <section className="home-card" aria-label={t("Today's schedule")}>
+          <h2>{t("Today's Schedule")}</h2>
+          {firstSlot ? (
+            <>
+              <SlotTimeline
+                date={todaysGroup?.date ?? firstSlot.date}
+                slots={todaysGroup?.slots ?? [firstSlot]}
+                now={now}
+              />
+              <p className="home-card-meta">
+                {t("Canal")} {summary.canal_name ?? "—"}
+              </p>
+              <p className="home-card-meta">{fmtDate(firstSlot.date, t)}</p>
+            </>
+          ) : (
+            <p className="negotiation-reason">{t("No slots scheduled yet.")}</p>
+          )}
+          <div className="home-card-actions">
+            <Link className="btn btn-secondary btn-xs" to="/app/farmer/schedule">
+              {t("View Schedule")}
+            </Link>
+          </div>
+        </section>
+
+        <section className="home-card" aria-label={t("Delivery status")}>
+          <h2>{t("Delivery Status")}</h2>
           {summary.delivery ? (
             <DeliverySummary
               authorized={summary.delivery.allocated_quantity}
               delivered={summary.delivery.delivered_quantity}
             />
           ) : (
-            <p className="negotiation-reason">No deliveries yet.</p>
+            <p className="negotiation-reason">{t("No deliveries yet.")}</p>
           )}
           <div className="home-card-actions">
             <Link className="btn btn-secondary btn-xs" to="/app/farmer/delivery">
-              View Delivery
+              {t("View Delivery")}
             </Link>
           </div>
         </section>
 
-        <section className="home-card" aria-label="Weather and water">
-          <h2>Weather / Water</h2>
+        <section className="home-card" aria-label={t("Weather and water")}>
+          <h2>{t("Weather / Water")}</h2>
           <ul className="plain-list">
             {summary.advisory.lines.map((line, i) => (
               <li key={`${i}-${line}`}>
@@ -449,13 +464,13 @@ function DashboardHome({ data }: { data: FarmerData }) {
           </ul>
           <div className="home-card-actions">
             <Link className="btn btn-secondary btn-xs" to="/app/farmer/alerts">
-              View Alerts
+              {t("View Alerts")}
             </Link>
           </div>
         </section>
 
-        <section className="home-card" aria-label="Recent activity">
-          <h2>Recent Activity</h2>
+        <section className="home-card" aria-label={t("Recent activity")}>
+          <h2>{t("Recent Activity")}</h2>
           {summary.recent_activity.length > 0 ? (
             <ul className="plain-list">
               {summary.recent_activity.map((item) => (
@@ -469,11 +484,11 @@ function DashboardHome({ data }: { data: FarmerData }) {
               ))}
             </ul>
           ) : (
-            <p className="negotiation-reason">No activity yet.</p>
+            <p className="negotiation-reason">{t("No activity yet.")}</p>
           )}
           <div className="home-card-actions">
             <Link className="btn btn-secondary btn-xs" to="/app/farmer/history">
-              View History
+              {t("View History")}
             </Link>
           </div>
         </section>
@@ -483,13 +498,16 @@ function DashboardHome({ data }: { data: FarmerData }) {
 }
 
 function DeliverySummary({ authorized, delivered }: { authorized: number; delivered: number }) {
+  const { t } = useLanguage();
   const shortfall = Math.max(0, authorized - delivered);
   const pct = authorized > 0 ? Math.round((delivered / authorized) * 100) : 0;
   return (
     <>
       <div className="negotiation-row">
-        <span>Authorized</span>
-        <span className="val">{fmtQty(authorized)} units</span>
+        <span>{t("Authorized")}</span>
+        <span className="val">
+          {fmtQty(authorized)} {t("units")}
+        </span>
       </div>
       <div
         className="delivery-bar"
@@ -497,21 +515,26 @@ function DeliverySummary({ authorized, delivered }: { authorized: number; delive
         aria-valuenow={pct}
         aria-valuemin={0}
         aria-valuemax={100}
-        aria-label="Delivered progress"
+        aria-label={t("Delivered progress")}
       >
         <span style={{ width: `${pct}%` }} />
       </div>
       <div className="negotiation-row">
-        <span>Delivered</span>
-        <span className="val">{fmtQty(delivered)} units</span>
+        <span>{t("Delivered")}</span>
+        <span className="val">
+          {fmtQty(delivered)} {t("units")}
+        </span>
       </div>
-      <p className="negotiation-reason">Shortfall: {fmtQty(shortfall)} units</p>
+      <p className="negotiation-reason">
+        {t("Shortfall:")} {fmtQty(shortfall)} {t("units")}
+      </p>
     </>
   );
 }
 
 function RequestSection({ data }: { data: FarmerData }) {
   const { getToken } = useAuth();
+  const { t } = useLanguage();
   const navigate = useNavigate();
   const today = new Date().toISOString().slice(0, 10);
   const [quantity, setQuantity] = useState("400");
@@ -529,17 +552,17 @@ function RequestSection({ data }: { data: FarmerData }) {
     const qty = Number(quantity);
     const hrs = Number(duration);
     if (!Number.isFinite(qty) || qty <= 0 || !requestDate || !crop.trim()) {
-      setError("Please fill in quantity, date, and crop.");
+      setError(t("Please fill in quantity, date, and crop."));
       return;
     }
     if (!Number.isFinite(hrs) || hrs <= 0) {
-      setError("Duration must be greater than 0.");
+      setError(t("Duration must be greater than 0."));
       return;
     }
     setSubmitting(true);
     try {
       const token = await getToken();
-      if (!token) throw new Error("Could not verify your session. Please sign in again.");
+      if (!token) throw new Error(t("Could not verify your session. Please sign in again."));
       await submitWaterRequest(token, {
         quantity_requested: qty,
         request_date: requestDate,
@@ -552,7 +575,7 @@ function RequestSection({ data }: { data: FarmerData }) {
       navigate("/app/farmer/allocation");
     } catch (err) {
       setError(
-        err instanceof ApiError ? err.message : "Could not submit. Please try again.",
+        err instanceof ApiError ? err.message : t("Could not submit. Please try again."),
       );
     } finally {
       setSubmitting(false);
@@ -564,7 +587,7 @@ function RequestSection({ data }: { data: FarmerData }) {
       <div className="card">
         <form className="form-grid" onSubmit={handleSubmit} noValidate>
           <div className="form-field">
-            <label htmlFor="qty">Quantity (units)</label>
+            <label htmlFor="qty">{t("Quantity (units)")}</label>
             <input
               id="qty"
               type="number"
@@ -574,7 +597,7 @@ function RequestSection({ data }: { data: FarmerData }) {
             />
           </div>
           <div className="form-field">
-            <label htmlFor="date">Date</label>
+            <label htmlFor="date">{t("Date")}</label>
             <input
               id="date"
               type="date"
@@ -583,19 +606,19 @@ function RequestSection({ data }: { data: FarmerData }) {
             />
           </div>
           <div className="form-field">
-            <label htmlFor="time">Preferred time</label>
+            <label htmlFor="time">{t("Preferred time")}</label>
             <select
               id="time"
               value={preferredTime}
               onChange={(e) => setPreferredTime(e.target.value)}
             >
-              <option value="morning">Morning</option>
-              <option value="afternoon">Afternoon</option>
-              <option value="evening">Evening</option>
+              <option value="morning">{t("Morning")}</option>
+              <option value="afternoon">{t("Afternoon")}</option>
+              <option value="evening">{t("Evening")}</option>
             </select>
           </div>
           <div className="form-field">
-            <label htmlFor="duration">Duration (hrs)</label>
+            <label htmlFor="duration">{t("Duration (hrs)")}</label>
             <input
               id="duration"
               type="number"
@@ -605,24 +628,24 @@ function RequestSection({ data }: { data: FarmerData }) {
             />
           </div>
           <div className="form-field">
-            <label htmlFor="crop">Crop</label>
+            <label htmlFor="crop">{t("Crop")}</label>
             <input
               id="crop"
               value={crop}
-              placeholder="e.g. Sugarcane"
+              placeholder={t("e.g. Sugarcane")}
               onChange={(e) => setCrop(e.target.value)}
             />
           </div>
           <div className="form-field">
-            <label htmlFor="urgency">Urgency</label>
+            <label htmlFor="urgency">{t("Urgency")}</label>
             <select
               id="urgency"
               value={urgency}
               onChange={(e) => setUrgency(e.target.value)}
             >
-              <option value="normal">Normal</option>
-              <option value="high">High</option>
-              <option value="critical">Critical — crop stress</option>
+              <option value="normal">{t("Normal")}</option>
+              <option value="high">{t("High")}</option>
+              <option value="critical">{t("Critical — crop stress")}</option>
             </select>
           </div>
           {error && (
@@ -632,7 +655,7 @@ function RequestSection({ data }: { data: FarmerData }) {
           )}
           <div className="form-actions" style={{ gridColumn: "1 / -1" }}>
             <button type="submit" className="btn btn-primary" disabled={submitting}>
-              {submitting ? "Submitting…" : "Submit request"}
+              {submitting ? t("Submitting…") : t("Submit request")}
             </button>
           </div>
         </form>
@@ -643,6 +666,7 @@ function RequestSection({ data }: { data: FarmerData }) {
 
 function AllocationSection({ data }: { data: FarmerData }) {
   const { summary, loading, error, reload } = data;
+  const { t } = useLanguage();
   if (loading || error || !summary) {
     return <PageState loading={loading} error={error} onRetry={reload} />;
   }
@@ -652,10 +676,10 @@ function AllocationSection({ data }: { data: FarmerData }) {
     return (
       <div className="dash-block">
         <div className="card">
-          <p className="negotiation-reason">No allocation yet — submit a water request first.</p>
+          <p className="negotiation-reason">{t("No allocation yet — submit a water request first.")}</p>
           <div className="home-card-actions">
             <Link className="btn btn-primary btn-xs" to="/app/farmer/request">
-              Request Water
+              {t("Request Water")}
             </Link>
           </div>
         </div>
@@ -665,33 +689,39 @@ function AllocationSection({ data }: { data: FarmerData }) {
   return (
     <div className="dash-block">
       <div className="dash-block-head">
-        <Pill>{allocation.status}</Pill>
+        <Pill tone={statusTone(allocation.status)}>{t(formatStatus(allocation.status))}</Pill>
       </div>
       <div className="card">
         <div className="negotiation-row">
-          <span>Requested</span>
-          <span className="val">{fmtQty(request.quantity_requested)} units</span>
+          <span>{t("Requested")}</span>
+          <span className="val">
+            {fmtQty(request.quantity_requested)} {t("units")}
+          </span>
         </div>
         <div className="negotiation-row">
-          <span>Allocated</span>
-          <span className="val">{fmtQty(allocation.allocated_quantity)} units</span>
+          <span>{t("Allocated")}</span>
+          <span className="val">
+            {fmtQty(allocation.allocated_quantity)} {t("units")}
+          </span>
         </div>
         <div className="negotiation-row">
-          <span>Date</span>
-          <span className="val">{fmtDate(allocation.allocation_date)}</span>
+          <span>{t("Date")}</span>
+          <span className="val">{fmtDate(allocation.allocation_date, t)}</span>
         </div>
         <div className="negotiation-row">
-          <span>Time slot</span>
+          <span>{t("Time slot")}</span>
           <span className="val">
             {fmtTime(allocation.time_start)}–{fmtTime(allocation.time_end)}
           </span>
         </div>
         <div className="negotiation-row">
-          <span>Canal</span>
+          <span>{t("Canal")}</span>
           <span className="val">{summary.canal_name ?? "—"}</span>
         </div>
         {allocation.reason && (
-          <p className="negotiation-reason">Reason for adjustment: {allocation.reason}</p>
+          <p className="negotiation-reason">
+            {t("Reason for adjustment:")} {allocation.reason}
+          </p>
         )}
       </div>
     </div>
@@ -711,10 +741,11 @@ function MediationSection({ data }: { data: FarmerData }) {
 }
 
 function ScheduleTable({ rows }: { rows: FarmerDashboardSummary["upcoming_schedules"] }) {
+  const { t } = useLanguage();
   if (rows.length === 0) {
     return (
       <div className="card">
-        <p className="negotiation-reason">No slots scheduled yet.</p>
+        <p className="negotiation-reason">{t("No slots scheduled yet.")}</p>
       </div>
     );
   }
@@ -723,22 +754,22 @@ function ScheduleTable({ rows }: { rows: FarmerDashboardSummary["upcoming_schedu
       <table className="dtable">
         <thead>
           <tr>
-            <th>Date</th>
-            <th>Time</th>
-            <th className="num">Quantity</th>
-            <th>Status</th>
+            <th>{t("Date")}</th>
+            <th>{t("Time")}</th>
+            <th className="num">{t("Quantity")}</th>
+            <th>{t("Status")}</th>
           </tr>
         </thead>
         <tbody>
           {rows.map((row) => (
             <tr key={row.id}>
-              <td>{fmtDate(row.date)}</td>
+              <td>{fmtDate(row.date, t)}</td>
               <td>
                 {fmtTime(row.start_time)}–{fmtTime(row.end_time)}
               </td>
               <td className="num">{fmtQty(row.quantity)}</td>
               <td>
-                <Pill>{row.status}</Pill>
+                <Pill tone={statusTone(row.status)}>{t(formatStatus(row.status))}</Pill>
               </td>
             </tr>
           ))}
@@ -750,32 +781,25 @@ function ScheduleTable({ rows }: { rows: FarmerDashboardSummary["upcoming_schedu
 
 function ScheduleSection({ data }: { data: FarmerData }) {
   const { summary, loading, error, reload } = data;
+  const now = useNow();
+  const { t } = useLanguage();
   if (loading || error || !summary) {
     return <PageState loading={loading} error={error} onRetry={reload} />;
   }
-  const first = summary.upcoming_schedules[0];
+  const groups = groupSchedulesByDate(summary.upcoming_schedules);
   return (
     <div className="dash-block">
-      {first && (
+      {groups.length > 0 && (
         <div className="home-card" style={{ marginBottom: 16 }}>
-          <h2>Next Slot</h2>
-          <div className="timeline">
-            <div className="timeline-row">
-              <span className="timeline-time">{fmtTime(first.start_time)}</span>
-              <span className="timeline-line" aria-hidden="true" />
+          <h2>{t("Upcoming slots")}</h2>
+          {groups.map((group) => (
+            <div className="slot-chart-group" key={group.date}>
+              <p className="home-card-meta">
+                {fmtDate(group.date, t)} · {t("Canal")} {summary.canal_name ?? "—"}
+              </p>
+              <SlotTimeline date={group.date} slots={group.slots} now={now} />
             </div>
-            <div className="timeline-marker" aria-hidden="true">
-              <span className="timeline-drop" />
-            </div>
-            <div className="timeline-row">
-              <span className="timeline-time">{fmtTime(first.end_time)}</span>
-              <span className="timeline-line" aria-hidden="true" />
-            </div>
-          </div>
-          <p className="home-card-meta">
-            {fmtDate(first.date)} · Canal {summary.canal_name ?? "—"}
-          </p>
-          <p className="home-card-meta">{first.status}</p>
+          ))}
         </div>
       )}
       <ScheduleTable rows={summary.upcoming_schedules} />
@@ -785,6 +809,7 @@ function ScheduleSection({ data }: { data: FarmerData }) {
 
 function DeliverySection({ data }: { data: FarmerData }) {
   const { summary, loading, error, reload } = data;
+  const { t } = useLanguage();
   if (loading || error || !summary) {
     return <PageState loading={loading} error={error} onRetry={reload} />;
   }
@@ -792,7 +817,7 @@ function DeliverySection({ data }: { data: FarmerData }) {
     return (
       <div className="dash-block">
         <div className="card">
-          <p className="negotiation-reason">No deliveries recorded yet.</p>
+          <p className="negotiation-reason">{t("No deliveries recorded yet.")}</p>
         </div>
       </div>
     );
@@ -804,10 +829,12 @@ function DeliverySection({ data }: { data: FarmerData }) {
           authorized={summary.delivery.allocated_quantity}
           delivered={summary.delivery.delivered_quantity}
         />
-        <p className="negotiation-reason">Status: {summary.delivery.delivery_status}</p>
+        <p className="negotiation-reason">
+          {t("Status:")} {t(formatStatus(summary.delivery.delivery_status))}
+        </p>
         <div className="home-card-actions">
           <button type="button" className="btn btn-secondary btn-xs">
-            Report Issue
+            {t("Report Issue")}
           </button>
         </div>
       </div>
@@ -817,6 +844,7 @@ function DeliverySection({ data }: { data: FarmerData }) {
 
 function AlertsSection({ data }: { data: FarmerData }) {
   const { summary, loading, error, reload } = data;
+  const { t } = useLanguage();
   if (loading || error || !summary) {
     return <PageState loading={loading} error={error} onRetry={reload} />;
   }
@@ -824,7 +852,7 @@ function AlertsSection({ data }: { data: FarmerData }) {
     <>
       <div className="dash-block">
         <div className="dash-block-head">
-          <h3>Water status</h3>
+          <h3>{t("Water status")}</h3>
         </div>
         <div className="card">
           <ul className="plain-list">
@@ -842,7 +870,7 @@ function AlertsSection({ data }: { data: FarmerData }) {
       </div>
       <div className="dash-block">
         <div className="dash-block-head">
-          <h3>Notifications</h3>
+          <h3>{t("Notifications")}</h3>
         </div>
         {summary.notifications.length > 0 ? (
           <div className="notif-list">
@@ -855,7 +883,7 @@ function AlertsSection({ data }: { data: FarmerData }) {
                 <div className="notif-body">
                   <div className="notif-title">{n.title}</div>
                   <div className="notif-meta">
-                    {fmtDateTime(n.created_at)}
+                    {fmtDateTime(n.created_at, t)}
                     {n.message ? ` · ${n.message}` : ""}
                   </div>
                 </div>
@@ -864,7 +892,7 @@ function AlertsSection({ data }: { data: FarmerData }) {
           </div>
         ) : (
           <div className="card">
-            <p className="negotiation-reason">No notifications yet.</p>
+            <p className="negotiation-reason">{t("No notifications yet.")}</p>
           </div>
         )}
       </div>
@@ -874,6 +902,7 @@ function AlertsSection({ data }: { data: FarmerData }) {
 
 function HistorySection({ data }: { data: FarmerData }) {
   const { summary, loading, error, reload } = data;
+  const { t } = useLanguage();
   if (loading || error || !summary) {
     return <PageState loading={loading} error={error} onRetry={reload} />;
   }
@@ -881,7 +910,7 @@ function HistorySection({ data }: { data: FarmerData }) {
     <>
       <div className="dash-block">
         <div className="dash-block-head">
-          <h3>Recent activity</h3>
+          <h3>{t("Recent activity")}</h3>
         </div>
         {summary.recent_activity.length > 0 ? (
           <div className="card">
@@ -899,33 +928,33 @@ function HistorySection({ data }: { data: FarmerData }) {
           </div>
         ) : (
           <div className="card">
-            <p className="negotiation-reason">No activity yet.</p>
+            <p className="negotiation-reason">{t("No activity yet.")}</p>
           </div>
         )}
       </div>
       <div className="dash-block">
         <div className="dash-block-head">
-          <h3>Past requests</h3>
+          <h3>{t("Past requests")}</h3>
         </div>
         {summary.requests.length > 0 ? (
           <div className="dtable-wrap">
             <table className="dtable">
               <thead>
                 <tr>
-                  <th>Date</th>
-                  <th className="num">Quantity</th>
-                  <th>Crop</th>
-                  <th>Status</th>
+                  <th>{t("Date")}</th>
+                  <th className="num">{t("Quantity")}</th>
+                  <th>{t("Crop")}</th>
+                  <th>{t("Status")}</th>
                 </tr>
               </thead>
               <tbody>
                 {summary.requests.map((row) => (
                   <tr key={row.id}>
-                    <td>{fmtDate(row.request_date)}</td>
+                    <td>{fmtDate(row.request_date, t)}</td>
                     <td className="num">{fmtQty(row.quantity_requested)}</td>
                     <td>{row.crop}</td>
                     <td>
-                      <Pill>{row.status}</Pill>
+                      <Pill tone={statusTone(row.status)}>{t(formatStatus(row.status))}</Pill>
                     </td>
                   </tr>
                 ))}
@@ -934,13 +963,13 @@ function HistorySection({ data }: { data: FarmerData }) {
           </div>
         ) : (
           <div className="card">
-            <p className="negotiation-reason">No requests yet.</p>
+            <p className="negotiation-reason">{t("No requests yet.")}</p>
           </div>
         )}
       </div>
       <div className="dash-block">
         <div className="dash-block-head">
-          <h3>Schedules</h3>
+          <h3>{t("Schedules")}</h3>
         </div>
         <ScheduleTable rows={summary.upcoming_schedules} />
       </div>
@@ -949,17 +978,40 @@ function HistorySection({ data }: { data: FarmerData }) {
 }
 
 function HelpSection() {
+  const { t } = useLanguage();
   return (
     <div className="dash-block">
       <div className="card">
         <p style={{ margin: 0, color: "var(--ink-muted)", fontSize: 14 }}>
-          Contact your Jal Vigyani for schedule changes or shortfall reports.
-          For urgent crop stress, mark your next request as Critical so it is
-          prioritized in mediation.
+          {t(
+            "Contact your Jal Vigyani for schedule changes or shortfall reports. For urgent crop stress, mark your next request as Critical so it is prioritized in mediation.",
+          )}
         </p>
       </div>
     </div>
   );
+}
+
+function slotLabel(hour: number): string {
+  if (hour < 12) return "Morning slot";
+  if (hour < 17) return "Afternoon slot";
+  return "Evening slot";
+}
+
+function useSidebarFooter(summary: FarmerDashboardSummary | null): {
+  title: string;
+  subtitle: string;
+  canalName: string | null;
+} {
+  const { t } = useLanguage();
+  const canalName = summary?.canal_name ?? null;
+  const nextSlot = summary?.upcoming_schedules[0];
+  const slot = t(nextSlot ? slotLabel(Number(nextSlot.start_time.slice(0, 2))) : "No slot scheduled");
+  return {
+    title: canalName ?? t("No canal assigned"),
+    subtitle: `${t("Rampur")} · ${slot}`,
+    canalName,
+  };
 }
 
 function getTimeGreeting(): string {
@@ -969,57 +1021,69 @@ function getTimeGreeting(): string {
   return "Good Evening";
 }
 
-const SECTION_META: Record<string, { title: (name: string) => string; subtitle: string }> = {
+const SECTION_META: Record<
+  string,
+  {
+    title: (name: string, t: (key: string) => string) => string;
+    subtitle: (canalName: string | null, t: (key: string) => string) => string;
+  }
+> = {
   "/app/farmer": {
-    title: (name) => `${getTimeGreeting()}, ${name}`,
-    subtitle: "Here's your water status for today",
+    title: (name, t) => `${t(getTimeGreeting())}, ${name}`,
+    subtitle: (_canalName, t) => t("Here's your water status for today"),
   },
   "/app/farmer/request": {
-    title: () => "Request water",
-    subtitle: "Submit a new requirement for Canal A.",
+    title: (_name, t) => t("Request water"),
+    subtitle: (canalName, t) =>
+      canalName
+        ? t("Submit a new requirement for {canal}.").replace("{canal}", canalName)
+        : t("Submit a new requirement — you'll need a canal assigned first."),
   },
   "/app/farmer/allocation": {
-    title: () => "My allocation",
-    subtitle: "What was requested versus what was allocated.",
+    title: (_name, t) => t("My allocation"),
+    subtitle: (_canalName, t) => t("What was requested versus what was allocated."),
   },
   "/app/farmer/mediation": {
-    title: () => "Negotiation center",
-    subtitle: "Review the proposal and respond.",
+    title: (_name, t) => t("Negotiation center"),
+    subtitle: (_canalName, t) => t("Review the proposal and respond."),
   },
   "/app/farmer/schedule": {
-    title: () => "Schedule",
-    subtitle: "Your confirmed and upcoming water slots.",
+    title: (_name, t) => t("Schedule"),
+    subtitle: (_canalName, t) => t("Your confirmed and upcoming water slots."),
   },
   "/app/farmer/delivery": {
-    title: () => "Delivery status",
-    subtitle: "Authorized versus actually delivered water.",
+    title: (_name, t) => t("Delivery status"),
+    subtitle: (_canalName, t) => t("Authorized versus actually delivered water."),
   },
   "/app/farmer/alerts": {
-    title: () => "Alerts",
-    subtitle: "Water status and system notifications.",
+    title: (_name, t) => t("Alerts"),
+    subtitle: (_canalName, t) => t("Water status and system notifications."),
   },
   "/app/farmer/history": {
-    title: () => "History",
-    subtitle: "Past requests, allocations and schedules.",
+    title: (_name, t) => t("History"),
+    subtitle: (_canalName, t) => t("Past requests, allocations and schedules."),
   },
   "/app/farmer/help": {
-    title: () => "Help",
-    subtitle: "Get support for schedules and shortfalls.",
+    title: (_name, t) => t("Help"),
+    subtitle: (_canalName, t) => t("Get support for schedules and shortfalls."),
   },
 };
 
 export function FarmerDashboardPage() {
   const displayName = useDisplayName();
   const location = useLocation();
+  const { t } = useLanguage();
   const meta = SECTION_META[location.pathname] ?? SECTION_META["/app/farmer"];
   const data = useFarmerData();
+  const footer = useSidebarFooter(data.summary);
 
   return (
     <DashboardShell
       roleLabel="Farmer"
-      title={meta.title(displayName)}
-      subtitle={meta.subtitle}
+      title={meta.title(displayName, t)}
+      subtitle={meta.subtitle(footer.canalName, t)}
       navItems={FARMER_NAV}
+      footer={footer}
     >
       <Routes>
         <Route index element={<DashboardHome data={data} />} />

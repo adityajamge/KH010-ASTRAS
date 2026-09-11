@@ -2,13 +2,17 @@ import { useState, type FormEvent } from "react";
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { useAuth } from "@clerk/clerk-react";
 import { DashboardShell, JAL_VIGYANI_NAV } from "../../components/DashboardShell";
-import { Pill } from "../../components/dashboard/Pill";
+import { Pill, statusTone } from "../../components/dashboard/Pill";
 import { StatGrid } from "../../components/dashboard/StatGrid";
 import type { StatCardData } from "../../lib/mockData";
 import { useAuthedData } from "../../lib/useAuthedData";
+import { useLanguage } from "../../lib/i18n";
+import { formatStatus } from "../../lib/format";
 import {
   ApiError,
+  assignFarmerCanal,
   decideConflict,
+  getAssignableFarmers,
   getCanalSchedule,
   getConflict,
   getFarmerAllocations,
@@ -25,6 +29,7 @@ import {
   type Conflict,
   type ConflictAction,
   type ConflictDetail,
+  type FarmerCanalRow,
   type JalVigyaniOverview,
   type SensorReading,
 } from "../../lib/api";
@@ -72,13 +77,6 @@ function deliveryTone(status: string): PillTone {
   }
 }
 
-function formatStatus(status: string): string {
-  return status
-    .split("_")
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(" ");
-}
-
 const POSSIBLE_CAUSES = [
   "Leakage",
   "Seepage",
@@ -89,11 +87,13 @@ const POSSIBLE_CAUSES = [
   "Evaporation / physical loss",
 ];
 
-function LoadingNote({ label = "Loading…" }: { label?: string }) {
-  return <p className="hero-note">{label}</p>;
+function LoadingNote({ label }: { label?: string }) {
+  const { t } = useLanguage();
+  return <p className="hero-note">{label ?? t("Loading…")}</p>;
 }
 
 function ErrorState({ message, onRetry }: { message: string; onRetry: () => void }) {
+  const { t } = useLanguage();
   return (
     <div className="card">
       <p className="field-error" style={{ margin: 0 }}>
@@ -101,7 +101,7 @@ function ErrorState({ message, onRetry }: { message: string; onRetry: () => void
       </p>
       <div className="form-actions">
         <button type="button" className="btn btn-secondary btn-xs" onClick={onRetry}>
-          Try again
+          {t("Try again")}
         </button>
       </div>
     </div>
@@ -111,11 +111,12 @@ function ErrorState({ message, onRetry }: { message: string; onRetry: () => void
 // ---------- Live canal monitoring ----------
 
 function CanalMonitoringTable({ canals }: { canals: CanalRead[] }) {
+  const { t } = useLanguage();
   if (canals.length === 0) {
     return (
       <div className="card">
         <p style={{ margin: 0, color: "var(--ink-muted)", fontSize: 14 }}>
-          No canals are configured for this dam yet.
+          {t("No canals are configured for this dam yet.")}
         </p>
       </div>
     );
@@ -125,11 +126,11 @@ function CanalMonitoringTable({ canals }: { canals: CanalRead[] }) {
       <table className="dtable">
         <thead>
           <tr>
-            <th>Canal</th>
-            <th className="num">Flow</th>
-            <th className="num">Water level</th>
-            <th className="num">Capacity</th>
-            <th className="num">Utilization</th>
+            <th>{t("Canal")}</th>
+            <th className="num">{t("Flow")}</th>
+            <th className="num">{t("Water level")}</th>
+            <th className="num">{t("Capacity")}</th>
+            <th className="num">{t("Utilization")}</th>
           </tr>
         </thead>
         <tbody>
@@ -163,27 +164,28 @@ function useOverview() {
 }
 
 function OverviewStats({ overview }: { overview: JalVigyaniOverview }) {
+  const { t } = useLanguage();
   const totalFlow = overview.canals.reduce((sum, c) => sum + c.current_flow, 0);
   const totalCapacity = overview.canals.reduce((sum, c) => sum + c.capacity, 0);
   const utilization = totalCapacity > 0 ? Math.round((totalFlow / totalCapacity) * 100) : 0;
 
   const stats: StatCardData[] = [
-    { label: "Total canal flow", value: `${totalFlow} units` },
-    { label: "Canal capacity", value: `${totalCapacity} units` },
-    { label: "Capacity utilization", value: `${utilization}%` },
-    { label: "Number of farmers", value: String(overview.farmer_count) },
+    { label: t("Total canal flow"), value: `${totalFlow} ${t("units")}` },
+    { label: t("Canal capacity"), value: `${totalCapacity} ${t("units")}` },
+    { label: t("Capacity utilization"), value: `${utilization}%` },
+    { label: t("Number of farmers"), value: String(overview.farmer_count) },
     {
-      label: "Active conflicts",
+      label: t("Active conflicts"),
       value: String(overview.active_conflicts),
       tone: overview.active_conflicts > 0 ? "warn" : undefined,
     },
     {
-      label: "Active anomalies",
+      label: t("Active anomalies"),
       value: String(overview.active_anomalies),
       tone: overview.active_anomalies > 0 ? "danger" : undefined,
     },
     {
-      label: "Under-delivery cases",
+      label: t("Under-delivery cases"),
       value: String(overview.under_delivery_count),
       tone: overview.under_delivery_count > 0 ? "warn" : undefined,
     },
@@ -195,9 +197,10 @@ function OverviewStats({ overview }: { overview: JalVigyaniOverview }) {
 // ---------- Farmer allocations ----------
 
 function AllocationTable() {
+  const { t } = useLanguage();
   const { data, loading, error, reload } = useAuthedData(getFarmerAllocations);
 
-  if (loading) return <LoadingNote label="Loading farmer allocations…" />;
+  if (loading) return <LoadingNote label={t("Loading farmer allocations…")} />;
   if (error) return <ErrorState message={error} onRetry={reload} />;
   const rows = data ?? [];
 
@@ -205,7 +208,7 @@ function AllocationTable() {
     return (
       <div className="card">
         <p style={{ margin: 0, color: "var(--ink-muted)", fontSize: 14 }}>
-          No farmers are assigned to this dam's canals yet.
+          {t("No farmers are assigned to this dam's canals yet.")}
         </p>
       </div>
     );
@@ -216,12 +219,12 @@ function AllocationTable() {
       <table className="dtable">
         <thead>
           <tr>
-            <th>Farmer</th>
-            <th className="num">Requested</th>
-            <th className="num">Allocated</th>
-            <th className="num">Delivered</th>
-            <th className="num">Shortfall</th>
-            <th>Status</th>
+            <th>{t("Farmer")}</th>
+            <th className="num">{t("Requested")}</th>
+            <th className="num">{t("Allocated")}</th>
+            <th className="num">{t("Delivered")}</th>
+            <th className="num">{t("Shortfall")}</th>
+            <th>{t("Status")}</th>
           </tr>
         </thead>
         <tbody>
@@ -233,14 +236,133 @@ function AllocationTable() {
               <td className="num">{row.delivered ?? "—"}</td>
               <td className="num">{row.shortfall ?? "—"}</td>
               <td>
-                <Pill tone={row.status === "no_request" ? "neutral" : undefined}>
-                  {formatStatus(row.status)}
+                <Pill
+                  tone={row.status === "no_request" ? "neutral" : statusTone(formatStatus(row.status))}
+                >
+                  {t(formatStatus(row.status))}
                 </Pill>
               </td>
             </tr>
           ))}
         </tbody>
       </table>
+    </div>
+  );
+}
+
+// ---------- Farmers: canal assignment ----------
+
+function FarmerCanalAssignRow({
+  farmer,
+  canals,
+  onChanged,
+}: {
+  farmer: FarmerCanalRow;
+  canals: CanalRead[];
+  onChanged: () => void;
+}) {
+  const { getToken } = useAuth();
+  const { t } = useLanguage();
+  const [canalId, setCanalId] = useState<number | "">(farmer.canal_id ?? "");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleAssign() {
+    setError(null);
+    setBusy(true);
+    try {
+      const token = await getToken();
+      if (!token) throw new Error(t("Could not verify your session."));
+      await assignFarmerCanal(token, farmer.farmer_id, canalId === "" ? null : Number(canalId));
+      onChanged();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : t("Could not assign the canal."));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const dirty = (canalId === "" ? null : Number(canalId)) !== farmer.canal_id;
+
+  return (
+    <tr>
+      <td>{farmer.farmer_name}</td>
+      <td>{farmer.village}</td>
+      <td>{farmer.phone}</td>
+      <td>
+        <select value={canalId} onChange={(e) => setCanalId(e.target.value === "" ? "" : Number(e.target.value))}>
+          <option value="">{t("Not assigned")}</option>
+          {canals.map((canal) => (
+            <option key={canal.id} value={canal.id}>
+              {canal.name}
+            </option>
+          ))}
+        </select>
+      </td>
+      <td>
+        <button
+          type="button"
+          className="btn btn-primary btn-xs"
+          disabled={busy || !dirty}
+          onClick={handleAssign}
+        >
+          {busy ? t("Saving…") : t("Save")}
+        </button>
+        {error && <p className="field-error" style={{ margin: "4px 0 0" }}>{error}</p>}
+      </td>
+    </tr>
+  );
+}
+
+function FarmersSection() {
+  const { t } = useLanguage();
+  const overview = useOverview();
+  const { data, loading, error, reload } = useAuthedData(getAssignableFarmers);
+
+  if (loading || overview.loading) return <LoadingNote label={t("Loading farmers…")} />;
+  if (error) return <ErrorState message={error} onRetry={reload} />;
+  if (overview.error) return <ErrorState message={overview.error} onRetry={overview.reload} />;
+
+  const farmers = data ?? [];
+  const canals = overview.data?.canals ?? [];
+
+  return (
+    <div className="dash-block">
+      <div className="dash-block-head">
+        <h3>{t("Assign canals")}</h3>
+        <p>{t("Unassigned farmers plus farmers already on this dam's canals.")}</p>
+      </div>
+      {farmers.length === 0 ? (
+        <div className="card">
+          <p style={{ margin: 0, color: "var(--ink-muted)", fontSize: 14 }}>
+            {t("No farmers to assign right now.")}
+          </p>
+        </div>
+      ) : (
+        <div className="dtable-wrap">
+          <table className="dtable">
+            <thead>
+              <tr>
+                <th>{t("Farmer")}</th>
+                <th>{t("Village")}</th>
+                <th>{t("Phone")}</th>
+                <th>{t("Canal")}</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {farmers.map((farmer) => (
+                <FarmerCanalAssignRow
+                  key={farmer.farmer_id}
+                  farmer={farmer}
+                  canals={canals}
+                  onChanged={reload}
+                />
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }
@@ -255,6 +377,7 @@ function RecordMeasurementForm({
   onRecorded: () => void;
 }) {
   const { getToken } = useAuth();
+  const { t } = useLanguage();
   const [canalId, setCanalId] = useState<number | "">(canals[0]?.id ?? "");
   const [location, setLocation] = useState("");
   const [flow, setFlow] = useState("");
@@ -268,13 +391,13 @@ function RecordMeasurementForm({
     const flowValue = Number(flow);
     const levelValue = Number(waterLevel);
     if (!canalId || !location.trim() || !Number.isFinite(flowValue) || !Number.isFinite(levelValue)) {
-      setError("Please fill in every field with valid values.");
+      setError(t("Please fill in every field with valid values."));
       return;
     }
     setSubmitting(true);
     try {
       const token = await getToken();
-      if (!token) throw new Error("Could not verify your session. Please sign in again.");
+      if (!token) throw new Error(t("Could not verify your session. Please sign in again."));
       await recordSensorReading(token, {
         canal_id: Number(canalId),
         location: location.trim(),
@@ -286,7 +409,7 @@ function RecordMeasurementForm({
       setWaterLevel("");
       onRecorded();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Could not save the measurement.");
+      setError(err instanceof ApiError ? err.message : t("Could not save the measurement."));
     } finally {
       setSubmitting(false);
     }
@@ -296,7 +419,7 @@ function RecordMeasurementForm({
     <form className="card" onSubmit={handleSubmit}>
       <div className="form-grid">
         <div className="form-field">
-          <label htmlFor="rm-canal">Canal</label>
+          <label htmlFor="rm-canal">{t("Canal")}</label>
           <select id="rm-canal" value={canalId} onChange={(e) => setCanalId(Number(e.target.value))}>
             {canals.map((canal) => (
               <option key={canal.id} value={canal.id}>
@@ -306,16 +429,16 @@ function RecordMeasurementForm({
           </select>
         </div>
         <div className="form-field">
-          <label htmlFor="rm-location">Location</label>
+          <label htmlFor="rm-location">{t("Location")}</label>
           <input
             id="rm-location"
             value={location}
             onChange={(e) => setLocation(e.target.value)}
-            placeholder="e.g. Gate G2"
+            placeholder={t("e.g. Gate G2")}
           />
         </div>
         <div className="form-field">
-          <label htmlFor="rm-flow">Flow (units/min)</label>
+          <label htmlFor="rm-flow">{t("Flow (units/min)")}</label>
           <input
             id="rm-flow"
             type="number"
@@ -325,7 +448,7 @@ function RecordMeasurementForm({
           />
         </div>
         <div className="form-field">
-          <label htmlFor="rm-level">Water level (m)</label>
+          <label htmlFor="rm-level">{t("Water level (m)")}</label>
           <input
             id="rm-level"
             type="number"
@@ -338,7 +461,7 @@ function RecordMeasurementForm({
       {error && <p className="field-error">{error}</p>}
       <div className="form-actions">
         <button type="submit" className="btn btn-primary btn-xs" disabled={submitting}>
-          {submitting ? "Saving…" : "Record measurement"}
+          {submitting ? t("Saving…") : t("Record measurement")}
         </button>
       </div>
     </form>
@@ -346,10 +469,11 @@ function RecordMeasurementForm({
 }
 
 function RecentReadingsTable({ readings }: { readings: SensorReading[] }) {
+  const { t } = useLanguage();
   if (readings.length === 0) {
     return (
       <p style={{ margin: 0, color: "var(--ink-muted)", fontSize: 14 }}>
-        No measurements recorded yet.
+        {t("No measurements recorded yet.")}
       </p>
     );
   }
@@ -358,10 +482,10 @@ function RecentReadingsTable({ readings }: { readings: SensorReading[] }) {
       <table className="dtable">
         <thead>
           <tr>
-            <th>Location</th>
-            <th className="num">Flow</th>
-            <th className="num">Water level</th>
-            <th>Recorded</th>
+            <th>{t("Location")}</th>
+            <th className="num">{t("Flow")}</th>
+            <th className="num">{t("Water level")}</th>
+            <th>{t("Recorded")}</th>
           </tr>
         </thead>
         <tbody>
@@ -380,10 +504,11 @@ function RecentReadingsTable({ readings }: { readings: SensorReading[] }) {
 }
 
 function MonitoringSection() {
+  const { t } = useLanguage();
   const overview = useOverview();
   const readings = useAuthedData(listSensorReadings);
 
-  if (overview.loading) return <LoadingNote label="Loading canal state…" />;
+  if (overview.loading) return <LoadingNote label={t("Loading canal state…")} />;
   if (overview.error) return <ErrorState message={overview.error} onRetry={overview.reload} />;
   const canals = overview.data?.canals ?? [];
 
@@ -391,26 +516,26 @@ function MonitoringSection() {
     <>
       <div className="dash-block">
         <div className="dash-block-head">
-          <h3>Live canal monitoring</h3>
+          <h3>{t("Live canal monitoring")}</h3>
         </div>
         <CanalMonitoringTable canals={canals} />
       </div>
       <div className="dash-block">
         <div className="dash-block-head">
-          <h3>Record measurement</h3>
-          <p>JV-US-02 — log an observed water-flow reading.</p>
+          <h3>{t("Record measurement")}</h3>
+          <p>{t("JV-US-02 — log an observed water-flow reading.")}</p>
         </div>
         {canals.length > 0 ? (
           <RecordMeasurementForm canals={canals} onRecorded={readings.reload} />
         ) : (
           <p style={{ margin: 0, color: "var(--ink-muted)", fontSize: 14 }}>
-            No canals to record a measurement against.
+            {t("No canals to record a measurement against.")}
           </p>
         )}
       </div>
       <div className="dash-block">
         <div className="dash-block-head">
-          <h3>Recent readings</h3>
+          <h3>{t("Recent readings")}</h3>
         </div>
         {readings.loading ? (
           <LoadingNote />
@@ -427,13 +552,14 @@ function MonitoringSection() {
 // ---------- Conflicts ----------
 
 function ConflictDetailPanel({ detail }: { detail: ConflictDetail }) {
+  const { t } = useLanguage();
   return (
     <div className="anomaly-panel" style={{ marginTop: 12 }}>
       <p className="negotiation-reason" style={{ marginTop: 0 }}>
-        Participants
+        {t("Participants")}
       </p>
       {detail.participants.length === 0 ? (
-        <p className="negotiation-reason">No participants recorded.</p>
+        <p className="negotiation-reason">{t("No participants recorded.")}</p>
       ) : (
         <ul className="plain-list">
           {detail.participants.map((p) => (
@@ -441,15 +567,18 @@ function ConflictDetailPanel({ detail }: { detail: ConflictDetail }) {
           ))}
         </ul>
       )}
-      <p className="negotiation-reason">Objections</p>
+      <p className="negotiation-reason">{t("Objections")}</p>
       {detail.objections.length === 0 ? (
-        <p className="negotiation-reason">No objections filed.</p>
+        <p className="negotiation-reason">{t("No objections filed.")}</p>
       ) : (
         <ul className="plain-list">
           {detail.objections.map((o) => (
             <li key={o.id}>
-              <strong>{o.farmer_name}</strong> — {formatStatus(o.reason)}
-              {o.details ? `: ${o.details}` : ""} <Pill tone={o.status === "resolved" ? "success" : "neutral"}>{formatStatus(o.status)}</Pill>
+              <strong>{o.farmer_name}</strong> — {t(formatStatus(o.reason))}
+              {o.details ? `: ${o.details}` : ""}{" "}
+              <Pill tone={o.status === "resolved" ? "success" : "neutral"}>
+                {t(formatStatus(o.status))}
+              </Pill>
             </li>
           ))}
         </ul>
@@ -460,6 +589,7 @@ function ConflictDetailPanel({ detail }: { detail: ConflictDetail }) {
 
 function ConflictCard({ conflict, onChanged }: { conflict: Conflict; onChanged: () => void }) {
   const { getToken } = useAuth();
+  const { t } = useLanguage();
   const [detail, setDetail] = useState<ConflictDetail | null>(null);
   const [expanded, setExpanded] = useState(false);
   const [busyAction, setBusyAction] = useState<ConflictAction | "review" | null>(null);
@@ -474,12 +604,12 @@ function ConflictCard({ conflict, onChanged }: { conflict: Conflict; onChanged: 
     setBusyAction("review");
     try {
       const token = await getToken();
-      if (!token) throw new Error("Could not verify your session.");
+      if (!token) throw new Error(t("Could not verify your session."));
       const data = await getConflict(token, conflict.id);
       setDetail(data);
       setExpanded(true);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Could not load conflict detail.");
+      setError(err instanceof ApiError ? err.message : t("Could not load conflict detail."));
     } finally {
       setBusyAction(null);
     }
@@ -490,11 +620,11 @@ function ConflictCard({ conflict, onChanged }: { conflict: Conflict; onChanged: 
     setBusyAction(action);
     try {
       const token = await getToken();
-      if (!token) throw new Error("Could not verify your session.");
+      if (!token) throw new Error(t("Could not verify your session."));
       await decideConflict(token, conflict.id, action);
       onChanged();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Could not record the decision.");
+      setError(err instanceof ApiError ? err.message : t("Could not record the decision."));
     } finally {
       setBusyAction(null);
     }
@@ -506,32 +636,34 @@ function ConflictCard({ conflict, onChanged }: { conflict: Conflict; onChanged: 
     <div className="conflict-card">
       <div className="conflict-card-head">
         <span className="cid">{conflict.conflict_code}</span>
-        <Pill tone={conflictTone(conflict.status)}>{formatStatus(conflict.status)}</Pill>
+        <Pill tone={conflictTone(conflict.status)}>{t(formatStatus(conflict.status))}</Pill>
       </div>
       <div className="conflict-meta">
         <div>
-          Canal
+          {t("Canal")}
           <strong>#{conflict.canal_id}</strong>
         </div>
         <div>
-          Available
+          {t("Available")}
           <strong>{conflict.available_water}</strong>
         </div>
         <div>
-          Demand
+          {t("Demand")}
           <strong>{conflict.total_demand}</strong>
         </div>
         <div>
-          Shortage
+          {t("Shortage")}
           <strong>{conflict.shortage}</strong>
         </div>
         <div>
-          Priority
-          <strong>{formatStatus(conflict.priority)}</strong>
+          {t("Priority")}
+          <strong>{t(formatStatus(conflict.priority))}</strong>
         </div>
       </div>
       {conflict.proposal && (
-        <p className="negotiation-reason">Proposal: {conflict.proposal}</p>
+        <p className="negotiation-reason">
+          {t("Proposal:")} {conflict.proposal}
+        </p>
       )}
       {error && <p className="field-error">{error}</p>}
       <div className="conflict-actions">
@@ -541,7 +673,7 @@ function ConflictCard({ conflict, onChanged }: { conflict: Conflict; onChanged: 
           onClick={handleReview}
           disabled={busyAction === "review"}
         >
-          {expanded ? "Hide" : "Review"}
+          {expanded ? t("Hide") : t("Review")}
         </button>
         <button
           type="button"
@@ -549,7 +681,7 @@ function ConflictCard({ conflict, onChanged }: { conflict: Conflict; onChanged: 
           onClick={() => handleDecision("approve")}
           disabled={busyAction !== null || isTerminal}
         >
-          Approve
+          {t("Approve")}
         </button>
         <button
           type="button"
@@ -557,7 +689,7 @@ function ConflictCard({ conflict, onChanged }: { conflict: Conflict; onChanged: 
           onClick={() => handleDecision("request_revision")}
           disabled={busyAction !== null || isTerminal}
         >
-          Request revision
+          {t("Request revision")}
         </button>
         <button
           type="button"
@@ -565,7 +697,7 @@ function ConflictCard({ conflict, onChanged }: { conflict: Conflict; onChanged: 
           onClick={() => handleDecision("escalate")}
           disabled={busyAction !== null || isTerminal}
         >
-          Escalate
+          {t("Escalate")}
         </button>
       </div>
       {expanded && detail && <ConflictDetailPanel detail={detail} />}
@@ -574,9 +706,10 @@ function ConflictCard({ conflict, onChanged }: { conflict: Conflict; onChanged: 
 }
 
 function ConflictList() {
+  const { t } = useLanguage();
   const { data, loading, error, reload } = useAuthedData(listConflicts);
 
-  if (loading) return <LoadingNote label="Loading conflicts…" />;
+  if (loading) return <LoadingNote label={t("Loading conflicts…")} />;
   if (error) return <ErrorState message={error} onRetry={reload} />;
   const conflicts = data ?? [];
 
@@ -584,7 +717,7 @@ function ConflictList() {
     return (
       <div className="card">
         <p style={{ margin: 0, color: "var(--ink-muted)", fontSize: 14 }}>
-          No conflicts detected for this dam right now.
+          {t("No conflicts detected for this dam right now.")}
         </p>
       </div>
     );
@@ -609,6 +742,7 @@ function ReportAnomalyForm({
   onReported: () => void;
 }) {
   const { getToken } = useAuth();
+  const { t } = useLanguage();
   const [canalId, setCanalId] = useState<number | "">(canals[0]?.id ?? "");
   const [location, setLocation] = useState("");
   const [expected, setExpected] = useState("");
@@ -635,13 +769,13 @@ function ReportAnomalyForm({
       !Number.isFinite(measuredValue) ||
       causes.length === 0
     ) {
-      setError("Please fill in every field and select at least one possible cause.");
+      setError(t("Please fill in every field and select at least one possible cause."));
       return;
     }
     setSubmitting(true);
     try {
       const token = await getToken();
-      if (!token) throw new Error("Could not verify your session. Please sign in again.");
+      if (!token) throw new Error(t("Could not verify your session. Please sign in again."));
       await reportAnomaly(token, {
         canal_id: Number(canalId),
         code: `ANM-${canalId}-${Date.now()}`,
@@ -657,7 +791,7 @@ function ReportAnomalyForm({
       setCauses([]);
       onReported();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Could not report the issue.");
+      setError(err instanceof ApiError ? err.message : t("Could not report the issue."));
     } finally {
       setSubmitting(false);
     }
@@ -667,7 +801,7 @@ function ReportAnomalyForm({
     <form className="card" onSubmit={handleSubmit}>
       <div className="form-grid">
         <div className="form-field">
-          <label htmlFor="an-canal">Canal</label>
+          <label htmlFor="an-canal">{t("Canal")}</label>
           <select id="an-canal" value={canalId} onChange={(e) => setCanalId(Number(e.target.value))}>
             {canals.map((canal) => (
               <option key={canal.id} value={canal.id}>
@@ -677,16 +811,16 @@ function ReportAnomalyForm({
           </select>
         </div>
         <div className="form-field">
-          <label htmlFor="an-location">Location</label>
+          <label htmlFor="an-location">{t("Location")}</label>
           <input
             id="an-location"
             value={location}
             onChange={(e) => setLocation(e.target.value)}
-            placeholder="e.g. Distributary 2"
+            placeholder={t("e.g. Distributary 2")}
           />
         </div>
         <div className="form-field">
-          <label htmlFor="an-expected">Expected flow</label>
+          <label htmlFor="an-expected">{t("Expected flow")}</label>
           <input
             id="an-expected"
             type="number"
@@ -696,7 +830,7 @@ function ReportAnomalyForm({
           />
         </div>
         <div className="form-field">
-          <label htmlFor="an-measured">Measured flow</label>
+          <label htmlFor="an-measured">{t("Measured flow")}</label>
           <input
             id="an-measured"
             type="number"
@@ -707,7 +841,7 @@ function ReportAnomalyForm({
         </div>
       </div>
       <div className="form-field" style={{ marginTop: 12 }}>
-        <label>Possible causes</label>
+        <label>{t("Possible causes")}</label>
         <div className="objection-options">
           {POSSIBLE_CAUSES.map((cause) => (
             <button
@@ -716,18 +850,18 @@ function ReportAnomalyForm({
               className={`chip${causes.includes(cause) ? " active" : ""}`}
               onClick={() => toggleCause(cause)}
             >
-              {cause}
+              {t(cause)}
             </button>
           ))}
         </div>
       </div>
       <p className="negotiation-reason">
-        Reported as investigation required — not a conclusion of theft.
+        {t("Reported as investigation required — not a conclusion of theft.")}
       </p>
       {error && <p className="field-error">{error}</p>}
       <div className="form-actions">
         <button type="submit" className="btn btn-primary btn-xs" disabled={submitting}>
-          {submitting ? "Reporting…" : "Report issue"}
+          {submitting ? t("Reporting…") : t("Report issue")}
         </button>
       </div>
     </form>
@@ -735,6 +869,7 @@ function ReportAnomalyForm({
 }
 
 function UnderDeliveryPanel() {
+  const { t } = useLanguage();
   const { data, loading, error, reload } = useAuthedData(getUnderDelivery);
 
   if (loading) return <LoadingNote />;
@@ -744,7 +879,7 @@ function UnderDeliveryPanel() {
   if (rows.length === 0) {
     return (
       <p style={{ margin: 0, color: "var(--ink-muted)", fontSize: 14 }}>
-        No under-delivery cases right now.
+        {t("No under-delivery cases right now.")}
       </p>
     );
   }
@@ -755,18 +890,18 @@ function UnderDeliveryPanel() {
         <div className="anomaly-panel" key={row.delivery_id} style={{ marginBottom: 12 }}>
           <div className="negotiation-row">
             <span>{row.farmer_name}</span>
-            <Pill tone={deliveryTone(row.status)}>{formatStatus(row.status)}</Pill>
+            <Pill tone={deliveryTone(row.status)}>{t(formatStatus(row.status))}</Pill>
           </div>
           <div className="negotiation-row">
-            <span>Allocated</span>
+            <span>{t("Allocated")}</span>
             <span className="val">{row.allocated_quantity}</span>
           </div>
           <div className="negotiation-row">
-            <span>Delivered</span>
+            <span>{t("Delivered")}</span>
             <span className="val">{row.delivered_quantity}</span>
           </div>
           <div className="negotiation-row">
-            <span>Shortfall</span>
+            <span>{t("Shortfall")}</span>
             <span className="val">{row.shortfall}</span>
           </div>
         </div>
@@ -777,6 +912,7 @@ function UnderDeliveryPanel() {
 
 function AnomalyRow({ anomaly, onChanged }: { anomaly: Anomaly; onChanged: () => void }) {
   const { getToken } = useAuth();
+  const { t } = useLanguage();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -785,11 +921,11 @@ function AnomalyRow({ anomaly, onChanged }: { anomaly: Anomaly; onChanged: () =>
     setBusy(true);
     try {
       const token = await getToken();
-      if (!token) throw new Error("Could not verify your session.");
+      if (!token) throw new Error(t("Could not verify your session."));
       await updateAnomalyStatus(token, anomaly.id, status);
       onChanged();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Could not update the anomaly.");
+      setError(err instanceof ApiError ? err.message : t("Could not update the anomaly."));
     } finally {
       setBusy(false);
     }
@@ -799,29 +935,31 @@ function AnomalyRow({ anomaly, onChanged }: { anomaly: Anomaly; onChanged: () =>
     <div className="anomaly-panel" style={{ marginBottom: 12 }}>
       <div className="negotiation-row">
         <span>{anomaly.code}</span>
-        <Pill tone={anomalyTone(anomaly.status)}>{formatStatus(anomaly.status)}</Pill>
+        <Pill tone={anomalyTone(anomaly.status)}>{t(formatStatus(anomaly.status))}</Pill>
       </div>
       <div className="negotiation-row">
-        <span>Location</span>
+        <span>{t("Location")}</span>
         <span className="val">{anomaly.location}</span>
       </div>
       <div className="negotiation-row">
-        <span>Expected / measured</span>
+        <span>{t("Expected / measured")}</span>
         <span className="val">
           {anomaly.expected_value} / {anomaly.measured_value}
         </span>
       </div>
       <div className="negotiation-row">
-        <span>Difference</span>
-        <span className="val">{anomaly.difference} units</span>
+        <span>{t("Difference")}</span>
+        <span className="val">
+          {anomaly.difference} {t("units")}
+        </span>
       </div>
       <p className="negotiation-reason">
-        Not a conclusion of theft — possible causes for investigation:
+        {t("Not a conclusion of theft — possible causes for investigation:")}
       </p>
       <div className="anomaly-causes">
         {anomaly.possible_causes.map((cause) => (
           <span className="pill pill-neutral" key={cause}>
-            {cause}
+            {t(cause)}
           </span>
         ))}
       </div>
@@ -834,7 +972,7 @@ function AnomalyRow({ anomaly, onChanged }: { anomaly: Anomaly; onChanged: () =>
             disabled={busy}
             onClick={() => setStatus("investigating")}
           >
-            Investigating
+            {t("Investigating")}
           </button>
           <button
             type="button"
@@ -842,7 +980,7 @@ function AnomalyRow({ anomaly, onChanged }: { anomaly: Anomaly; onChanged: () =>
             disabled={busy}
             onClick={() => setStatus("resolved")}
           >
-            Resolved
+            {t("Resolved")}
           </button>
           <button
             type="button"
@@ -850,7 +988,7 @@ function AnomalyRow({ anomaly, onChanged }: { anomaly: Anomaly; onChanged: () =>
             disabled={busy}
             onClick={() => setStatus("dismissed")}
           >
-            Dismiss
+            {t("Dismiss")}
           </button>
         </div>
       )}
@@ -859,6 +997,7 @@ function AnomalyRow({ anomaly, onChanged }: { anomaly: Anomaly; onChanged: () =>
 }
 
 function AnomalyPanels() {
+  const { t } = useLanguage();
   const overview = useOverview();
   const anomalies = useAuthedData(listAnomalies);
 
@@ -866,14 +1005,14 @@ function AnomalyPanels() {
     <div className="dash-grid-2">
       <div className="dash-block">
         <div className="dash-block-head">
-          <h3>Under-delivery detection</h3>
+          <h3>{t("Under-delivery detection")}</h3>
         </div>
         <UnderDeliveryPanel />
       </div>
 
       <div className="dash-block">
         <div className="dash-block-head">
-          <h3>Water loss / anomaly</h3>
+          <h3>{t("Water loss / anomaly")}</h3>
         </div>
         {anomalies.loading ? (
           <LoadingNote />
@@ -881,7 +1020,7 @@ function AnomalyPanels() {
           <ErrorState message={anomalies.error} onRetry={anomalies.reload} />
         ) : (anomalies.data ?? []).length === 0 ? (
           <p style={{ margin: 0, color: "var(--ink-muted)", fontSize: 14 }}>
-            No anomalies reported.
+            {t("No anomalies reported.")}
           </p>
         ) : (
           (anomalies.data ?? []).map((a) => (
@@ -890,8 +1029,8 @@ function AnomalyPanels() {
         )}
 
         <div className="dash-block-head" style={{ marginTop: 24 }}>
-          <h3>Report infrastructure issue</h3>
-          <p>JV-US-03 — leakage, blockage, gate mismatch, or a flow discrepancy.</p>
+          <h3>{t("Report infrastructure issue")}</h3>
+          <p>{t("JV-US-03 — leakage, blockage, gate mismatch, or a flow discrepancy.")}</p>
         </div>
         {overview.loading ? (
           <LoadingNote />
@@ -899,7 +1038,7 @@ function AnomalyPanels() {
           <ErrorState message={overview.error} onRetry={overview.reload} />
         ) : (overview.data?.canals ?? []).length === 0 ? (
           <p style={{ margin: 0, color: "var(--ink-muted)", fontSize: 14 }}>
-            No canals to report against.
+            {t("No canals to report against.")}
           </p>
         ) : (
           <ReportAnomalyForm
@@ -915,9 +1054,10 @@ function AnomalyPanels() {
 // ---------- Schedule ----------
 
 function CanalScheduleTable() {
+  const { t } = useLanguage();
   const { data, loading, error, reload } = useAuthedData(getCanalSchedule);
 
-  if (loading) return <LoadingNote label="Loading schedule…" />;
+  if (loading) return <LoadingNote label={t("Loading schedule…")} />;
   if (error) return <ErrorState message={error} onRetry={reload} />;
   const rows = data ?? [];
 
@@ -925,7 +1065,7 @@ function CanalScheduleTable() {
     return (
       <div className="card">
         <p style={{ margin: 0, color: "var(--ink-muted)", fontSize: 14 }}>
-          No irrigation slots scheduled yet.
+          {t("No irrigation slots scheduled yet.")}
         </p>
       </div>
     );
@@ -936,11 +1076,11 @@ function CanalScheduleTable() {
       <table className="dtable">
         <thead>
           <tr>
-            <th>Date</th>
-            <th>Time</th>
-            <th>Farmer</th>
-            <th className="num">Quantity</th>
-            <th>Status</th>
+            <th>{t("Date")}</th>
+            <th>{t("Time")}</th>
+            <th>{t("Farmer")}</th>
+            <th className="num">{t("Quantity")}</th>
+            <th>{t("Status")}</th>
           </tr>
         </thead>
         <tbody>
@@ -953,7 +1093,7 @@ function CanalScheduleTable() {
               <td>{row.farmer_name}</td>
               <td className="num">{row.quantity}</td>
               <td>
-                <Pill>{formatStatus(row.status)}</Pill>
+                <Pill tone={statusTone(formatStatus(row.status))}>{t(formatStatus(row.status))}</Pill>
               </td>
             </tr>
           ))}
@@ -966,9 +1106,10 @@ function CanalScheduleTable() {
 // ---------- Dashboard home ----------
 
 function DashboardHome() {
+  const { t } = useLanguage();
   const overview = useOverview();
 
-  if (overview.loading) return <LoadingNote label="Loading canal state…" />;
+  if (overview.loading) return <LoadingNote label={t("Loading canal state…")} />;
   if (overview.error) return <ErrorState message={overview.error} onRetry={overview.reload} />;
   if (!overview.data) return null;
 
@@ -979,14 +1120,14 @@ function DashboardHome() {
       </div>
       <div className="dash-block">
         <div className="dash-block-head">
-          <h3>Live canal monitoring</h3>
+          <h3>{t("Live canal monitoring")}</h3>
           <p>{overview.data.dam.name}</p>
         </div>
         <CanalMonitoringTable canals={overview.data.canals} />
       </div>
       <div className="dash-block">
         <div className="dash-block-head">
-          <h3>Farmer allocation</h3>
+          <h3>{t("Farmer allocation")}</h3>
         </div>
         <AllocationTable />
       </div>
@@ -1000,6 +1141,10 @@ const SECTION_META: Record<string, { title: string; subtitle: string }> = {
   "/app/jal-vigyani": {
     title: "Canal state",
     subtitle: "Ground evidence, allocation, and conflict monitoring.",
+  },
+  "/app/jal-vigyani/farmers": {
+    title: "Farmers",
+    subtitle: "Assign a canal to unassigned or existing farmers on this dam.",
   },
   "/app/jal-vigyani/monitoring": {
     title: "Live canal monitoring",
@@ -1029,17 +1174,19 @@ const SECTION_META: Record<string, { title: string; subtitle: string }> = {
 
 export function JalVigyaniDashboardPage() {
   const location = useLocation();
+  const { t } = useLanguage();
   const meta = SECTION_META[location.pathname] ?? SECTION_META["/app/jal-vigyani"];
 
   return (
     <DashboardShell
       roleLabel="Jal Vigyani"
-      title={meta.title}
-      subtitle={meta.subtitle}
+      title={t(meta.title)}
+      subtitle={t(meta.subtitle)}
       navItems={JAL_VIGYANI_NAV}
     >
       <Routes>
         <Route index element={<DashboardHome />} />
+        <Route path="farmers" element={<FarmersSection />} />
         <Route path="monitoring" element={<MonitoringSection />} />
         <Route
           path="allocations"
@@ -1072,8 +1219,7 @@ export function JalVigyaniDashboardPage() {
             <div className="dash-block">
               <div className="card">
                 <p style={{ margin: 0, color: "var(--ink-muted)", fontSize: 14 }}>
-                  Contact the system administrator for sensor issues or
-                  escalate unresolved conflicts to the canal authority.
+                  {t("Contact the system administrator for sensor issues or escalate unresolved conflicts to the canal authority.")}
                 </p>
               </div>
             </div>

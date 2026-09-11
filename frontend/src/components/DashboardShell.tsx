@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { ReactNode } from "react";
 import { AssistantFab } from "./AssistantFab";
 import { AssistantChat } from "./AssistantChat";
+import { LANGUAGES, useLanguage, type Lang } from "../lib/i18n";
 
 interface NavItem {
   label: string;
@@ -16,6 +17,7 @@ interface DashboardShellProps {
   title: string;
   subtitle?: string;
   navItems?: NavItem[];
+  footer?: { title: string; subtitle: string };
   children: ReactNode;
 }
 
@@ -33,6 +35,7 @@ export const FARMER_NAV: NavItem[] = [
 
 export const JAL_VIGYANI_NAV: NavItem[] = [
   { label: "Dashboard", to: "/app/jal-vigyani", end: true },
+  { label: "Farmers", to: "/app/jal-vigyani/farmers" },
   { label: "Monitoring", to: "/app/jal-vigyani/monitoring" },
   { label: "Allocations", to: "/app/jal-vigyani/allocations" },
   { label: "Conflicts", to: "/app/jal-vigyani/conflicts" },
@@ -55,6 +58,7 @@ export function DashboardShell({
   title,
   subtitle,
   navItems,
+  footer,
   children,
 }: DashboardShellProps) {
   const nav =
@@ -64,7 +68,7 @@ export function DashboardShell({
       : roleLabel === "Dam Operator"
         ? DAM_NAV
         : FARMER_NAV);
-  const [language, setLanguage] = useState("en");
+  const { lang, setLang, t } = useLanguage();
   const [chatOpen, setChatOpen] = useState(false);
 
   return (
@@ -77,14 +81,17 @@ export function DashboardShell({
           </Link>
         </div>
         <div className="app-topbar-right">
-          <label className="lang-select-wrap" aria-label="Language">
+          <label className="lang-select-wrap" aria-label={t("Language")}>
             <select
               className="lang-select"
-              value={language}
-              onChange={(e) => setLanguage(e.target.value)}
+              value={lang}
+              onChange={(e) => setLang(e.target.value as Lang)}
             >
-              <option value="en">English</option>
-              <option value="mr">मराठी</option>
+              {LANGUAGES.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
             </select>
           </label>
           <span className="profile-chip">
@@ -94,8 +101,8 @@ export function DashboardShell({
       </header>
 
       <div className="app-body">
-        <aside className="app-sidebar" aria-label="Dashboard navigation">
-          <p className="sidebar-role">{roleLabel}</p>
+        <aside className="app-sidebar" aria-label={t("Dashboard navigation")}>
+          <p className="sidebar-role">{t(roleLabel)}</p>
           <nav className="sidebar-nav">
             {nav.map((item) => (
               <NavLink
@@ -107,19 +114,21 @@ export function DashboardShell({
                 }
               >
                 <span className="sidebar-indicator" aria-hidden="true" />
-                {item.label}
+                {t(item.label)}
               </NavLink>
             ))}
           </nav>
           <div className="sidebar-footer">
-            <p className="sidebar-footer-title">Canal A</p>
-            <p className="sidebar-footer-sub">Rampur · Morning slot</p>
+            <p className="sidebar-footer-title">{footer?.title ?? t("Canal A")}</p>
+            <p className="sidebar-footer-sub">
+              {footer?.subtitle ?? t("Rampur · Morning slot")}
+            </p>
           </div>
         </aside>
 
         <main className="app-main">
           <div className="app-main-head">
-            <p className="eyebrow">{roleLabel}</p>
+            <p className="eyebrow">{t(roleLabel)}</p>
             <h1>{title}</h1>
             {subtitle && <p className="app-main-sub">{subtitle}</p>}
           </div>
