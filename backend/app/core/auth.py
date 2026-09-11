@@ -1,8 +1,11 @@
 """Clerk session verification and role-based guards.
 
 Roles (farmer, jal_vigyani, dam_operator) live in Clerk ``publicMetadata.role``.
-The session token only proves identity, so the role is read from the Clerk
-Backend API (short TTL cache) — no custom JWT template needed.
+dam_operator and jal_vigyani accounts also carry ``publicMetadata.dam_id`` —
+the shared dam (see app/models/network.py Dam) they're assigned to. For this
+hackathon every such account is assigned dam_id=1 (see docs/setup.md). The
+session token only proves identity, so both are read from the Clerk Backend
+API (short TTL cache) — no custom JWT template needed.
 """
 
 import time
@@ -19,14 +22,17 @@ ROLE_JAL_VIGYANI = "jal_vigyani"
 ROLE_DAM_OPERATOR = "dam_operator"
 ALL_ROLES = (ROLE_FARMER, ROLE_JAL_VIGYANI, ROLE_DAM_OPERATOR)
 
-_ROLE_CACHE_TTL_SECONDS = 60
-_role_cache: dict[str, tuple[str | None, float]] = {}
+_IDENTITY_CACHE_TTL_SECONDS = 60
+_identity_cache: dict[str, tuple[str | None, int | None, float]] = {}
 
 
 @dataclass
 class AuthUser:
     user_id: str
     role: str | None
+    # Assigned dam (dam_operator / jal_vigyani only) — None for farmers and
+    # for accounts without publicMetadata.dam_id set.
+    dam_id: int | None = None
 
 
 def _clerk_client() -> Clerk:
@@ -38,17 +44,19 @@ def _clerk_client() -> Clerk:
     return Clerk(bearer_auth=settings.CLERK_SECRET_KEY)
 
 
-def _cached_role(clerk: Clerk, user_id: str) -> str | None:
+def _cached_identity(clerk: Clerk, user_id: str) -> tuple[str | None, int | None]:
     now = time.monotonic()
-    cached = _role_cache.get(user_id)
-    if cached and now - cached[1] < _ROLE_CACHE_TTL_SECONDS:
-        return cached[0]
+    cached = _identity_cache.get(user_id)
+    if cached and now - cached[2] < _IDENTITY_CACHE_TTL_SECONDS:
+        return cached[0], cached[1]
     user = clerk.users.get(user_id=user_id)
     metadata = user.public_metadata or {}
     role = metadata.get("role")
     role = role if isinstance(role, str) else None
-    _role_cache[user_id] = (role, now)
-    return role
+    dam_id = metadata.get("dam_id")
+    dam_id = dam_id if isinstance(dam_id, int) else None
+    _identity_cache[user_id] = (role, dam_id, now)
+    return role, dam_id
 
 
 async def get_current_user(request: Request) -> AuthUser:
@@ -71,7 +79,8 @@ async def get_current_user(request: Request) -> AuthUser:
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Not authenticated",
         )
-    return AuthUser(user_id=user_id, role=_cached_role(clerk, user_id))
+    role, dam_id = _cached_identity(clerk, user_id)
+    return AuthUser(user_id=user_id, role=role, dam_id=dam_id)
 
 
 def require_roles(*roles: str):
