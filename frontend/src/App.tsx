@@ -9,6 +9,7 @@ import { FarmerDashboardPage } from "./pages/dashboards/Farmer";
 import { JalVigyaniDashboardPage } from "./pages/dashboards/JalVigyani";
 import { DamOperatorDashboardPage } from "./pages/dashboards/DamOperator";
 import { RequireRole } from "./components/RequireRole";
+import { RouteProgressBar } from "./components/RouteProgressBar";
 import { ROLES } from "./lib/roles";
 import "./App.css";
 
@@ -37,6 +38,7 @@ function App() {
 
   return (
     <ClerkProvider publishableKey={clerkKey}>
+      <RouteProgressBar />
       <Routes>
         <Route path="/" element={<Landing />} />
         <Route path="/sign-in/*" element={<SignInPage />} />
@@ -44,7 +46,7 @@ function App() {
         <Route path="/no-access" element={<NoAccessPage />} />
         <Route path="/app" element={<RoleHomePage />} />
         <Route
-          path="/app/farmer"
+          path="/app/farmer/*"
           element={
             <RequireRole roles={[ROLES.FARMER]}>
               <FarmerDashboardPage />
@@ -52,7 +54,7 @@ function App() {
           }
         />
         <Route
-          path="/app/jal-vigyani"
+          path="/app/jal-vigyani/*"
           element={
             <RequireRole roles={[ROLES.JAL_VIGYANI]}>
               <JalVigyaniDashboardPage />
@@ -60,7 +62,7 @@ function App() {
           }
         />
         <Route
-          path="/app/dam"
+          path="/app/dam/*"
           element={
             <RequireRole roles={[ROLES.DAM_OPERATOR]}>
               <DamOperatorDashboardPage />
