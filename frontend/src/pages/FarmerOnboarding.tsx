@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
-import { useAuth } from "@clerk/clerk-react";
+import { useAuth, useUser } from "@clerk/clerk-react";
 import {
   ApiError,
   listCanals,
@@ -31,6 +31,10 @@ interface FarmerOnboardingFormProps {
  */
 export function FarmerOnboardingForm({ onComplete }: FarmerOnboardingFormProps) {
   const { getToken } = useAuth();
+  const { isLoaded: userLoaded, user } = useUser();
+  // Name already known from the Gmail/Clerk account — reuse it instead of asking again.
+  const clerkName = user?.fullName?.trim() || user?.firstName?.trim() || "";
+  const showNameField = userLoaded && !clerkName;
   const [canals, setCanals] = useState<CanalRead[]>([]);
   const [canalsHint, setCanalsHint] = useState<string | null>(null);
 
@@ -71,7 +75,8 @@ export function FarmerOnboardingForm({ onComplete }: FarmerOnboardingFormProps) 
     setError(null);
 
     const area = Number(areaAcres);
-    if (!name.trim() || !phone.trim() || !crop.trim() || !cropStage.trim()) {
+    const effectiveName = (clerkName || name).trim();
+    if (!effectiveName || !phone.trim() || !crop.trim() || !cropStage.trim()) {
       setError("Please fill in every field.");
       return;
     }
@@ -87,7 +92,7 @@ export function FarmerOnboardingForm({ onComplete }: FarmerOnboardingFormProps) 
         throw new Error("Could not verify your session. Please sign in again.");
       }
       await onboardFarmer(token, {
-        name: name.trim(),
+        name: effectiveName,
         phone: phone.trim(),
         canal_id: canalId ? Number(canalId) : null,
         field: {
@@ -128,19 +133,29 @@ export function FarmerOnboardingForm({ onComplete }: FarmerOnboardingFormProps) 
 
         <form className="card onboarding-card" onSubmit={handleSubmit} noValidate>
           <p className="onboarding-section-title">Your details</p>
+          {!showNameField && userLoaded && (
+            <p className="field-hint" style={{ marginTop: 0 }}>
+              Continuing as {clerkName} (from your Google account)
+            </p>
+          )}
           <div className="form-grid">
-            <div className="form-field">
-              <label htmlFor="ob-name">Full name</label>
-              <input
-                id="ob-name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="e.g. Ramesh Patil"
-                autoComplete="name"
-                required
-              />
-            </div>
-            <div className="form-field">
+            {showNameField && (
+              <div className="form-field">
+                <label htmlFor="ob-name">Full name</label>
+                <input
+                  id="ob-name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="e.g. Ramesh Patil"
+                  autoComplete="name"
+                  required
+                />
+              </div>
+            )}
+            <div
+              className="form-field"
+              style={showNameField ? undefined : { gridColumn: "1 / -1" }}
+            >
               <label htmlFor="ob-phone">Phone number</label>
               <input
                 id="ob-phone"
