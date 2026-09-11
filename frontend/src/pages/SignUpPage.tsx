@@ -6,7 +6,8 @@ export function SignUpPage() {
     <main className="page">
       <section className="auth-wrap">
         <Link className="brand" to="/">
-          <span className="brand-mark">≈</span> JalSetu
+          <img src="/logo.png" alt="JalSetu logo" className="brand-logo" />
+          JalSetu
         </Link>
         <SignUp routing="path" path="/sign-up" signInUrl="/sign-in" />
       </section>

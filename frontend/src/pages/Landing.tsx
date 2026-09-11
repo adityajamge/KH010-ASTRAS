@@ -127,7 +127,8 @@ function Landing() {
       <header className="top-nav">
         <div className="top-nav-inner">
           <Link className="brand" to="/">
-            <span className="brand-mark">≈</span> JalSetu
+            <img src="/logo.png" alt="JalSetu logo" className="brand-logo" />
+            JalSetu
           </Link>
           <nav className="nav-links" aria-label="Primary">
             <a href="#system">System</a>
@@ -225,7 +226,7 @@ function Landing() {
                   <div className="fid">
                     <span>{farm.id}</span>
                     {farm.conflict && (
-                      <span className="conflict-flag">⚠ SHORTAGE</span>
+                      <span className="conflict-flag">SHORTAGE</span>
                     )}
                   </div>
                   <div className="bar">
