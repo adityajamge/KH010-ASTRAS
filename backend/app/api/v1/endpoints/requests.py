@@ -5,6 +5,8 @@ for your canal, so the response already reflects your current proposal —
 conflict detection, fair-share math, schedule, and notifications included.
 """
 
+from datetime import date
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
@@ -27,6 +29,11 @@ def submit_request(
     db: Session = Depends(get_db),
 ) -> WaterRequest:
     """Submit a water requirement and get an allocation proposal back."""
+    if payload.request_date < date.today():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Request date cannot be in the past.",
+        )
     farmer = get_own_farmer(db, user)
     canal = db.get(Canal, farmer.canal_id) if farmer.canal_id else None
     if canal is None:

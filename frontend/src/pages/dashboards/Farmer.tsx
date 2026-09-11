@@ -577,6 +577,10 @@ function RequestSection({ data }: { data: FarmerData }) {
       setError(t("Please fill in quantity, date, and crop."));
       return;
     }
+    if (requestDate < today) {
+      setError(t("Request date cannot be in the past."));
+      return;
+    }
     if (!Number.isFinite(hrs) || hrs <= 0) {
       setError(t("Duration must be greater than 0."));
       return;
@@ -624,6 +628,7 @@ function RequestSection({ data }: { data: FarmerData }) {
               id="date"
               type="date"
               value={requestDate}
+              min={today}
               onChange={(e) => setRequestDate(e.target.value)}
             />
           </div>

@@ -127,7 +127,7 @@ def as_farmer(key: str):
 
 REQUEST = {
     "quantity_requested": 400,
-    "request_date": "2026-09-12",
+    "request_date": date.today().isoformat(),
     "preferred_time": "morning",
     "duration_hours": 2,
     "crop": "Sugarcane",
@@ -185,6 +185,14 @@ def test_slots_are_sequential_and_cover_quantity():
 
 
 # ---------- Endpoint tests ----------
+
+
+def test_submit_request_rejects_past_date(client, seed):
+    as_farmer("f1")
+    past = {**REQUEST, "request_date": "2020-01-01"}
+    response = client.post("/api/v1/requests", json=past)
+    assert response.status_code == 400, response.text
+    assert "past" in response.json()["detail"].lower()
 
 
 def test_submit_request_allocates_and_schedules(client, seed):
