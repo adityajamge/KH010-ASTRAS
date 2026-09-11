@@ -39,9 +39,36 @@ npm run dev
 
 Key env vars (see `frontend/.env.example`):
 
-| Variable       | Default                 |
-| -------------- | ----------------------- |
-| `VITE_API_URL` | `http://localhost:8000` |
+| Variable                      | Default                 |
+| ----------------------------- | ----------------------- |
+| `VITE_API_URL`                | `http://localhost:8000` |
+| `VITE_CLERK_PUBLISHABLE_KEY`  | _(required for auth)_   |
+
+## Authentication (Clerk)
+
+1. Create an application at https://dashboard.clerk.com (accept defaults).
+2. Copy the **publishable key** into `frontend/.env.development` as
+   `VITE_CLERK_PUBLISHABLE_KEY`, and the **secret key** into `backend/.env`
+   as `CLERK_SECRET_KEY`. Restart both servers.
+3. Assign each user a role: Dashboard → Users → select user → Metadata →
+   edit **Public metadata** to one of:
+   ```json
+   { "role": "farmer" }
+   { "role": "jal_vigyani" }
+   { "role": "dam_operator" }
+   ```
+
+How it works:
+
+- Frontend: `ClerkProvider` + `/sign-in` and `/sign-up` routes. `RequireRole`
+  guards `/app/farmer`, `/app/jal-vigyani`, `/app/dam` — signed-out users go
+  to sign-in, wrong/missing roles go to `/no-access`.
+- Backend: `app/core/auth.py` verifies the Clerk session token (official
+  `clerk-backend-api` SDK) and reads the role from the user's public metadata
+  (60s cache). `GET /api/v1/me` returns `{user_id, role}`; guards
+  (`require_farmer`, `require_jal_vigyani`, `require_dam_operator`) return
+  401 when signed out, 403 for the wrong role, 503 when `CLERK_SECRET_KEY`
+  is not configured.
 
 ## Health checks
 

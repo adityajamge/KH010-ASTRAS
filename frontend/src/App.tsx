@@ -1,62 +1,75 @@
-import { useEffect, useState } from "react";
-import { API_BASE_URL, getVersionedHealth, type HealthResponse } from "./lib/api";
+import { ClerkProvider } from "@clerk/clerk-react";
+import { Route, Routes } from "react-router-dom";
+import Landing from "./pages/Landing";
+import { SignInPage } from "./pages/SignInPage";
+import { SignUpPage } from "./pages/SignUpPage";
+import { NoAccessPage } from "./pages/NoAccess";
+import { RoleHomePage } from "./pages/RoleHome";
+import { FarmerDashboardPage } from "./pages/dashboards/Farmer";
+import { JalVigyaniDashboardPage } from "./pages/dashboards/JalVigyani";
+import { DamOperatorDashboardPage } from "./pages/dashboards/DamOperator";
+import { RequireRole } from "./components/RequireRole";
+import { ROLES } from "./lib/roles";
 import "./App.css";
 
-type BackendState =
-  | { status: "loading" }
-  | { status: "ok"; data: HealthResponse }
-  | { status: "error"; message: string };
+const clerkKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
 
-function App() {
-  const [backend, setBackend] = useState<BackendState>({ status: "loading" });
-
-  useEffect(() => {
-    let cancelled = false;
-    getVersionedHealth()
-      .then((data) => {
-        if (!cancelled) setBackend({ status: "ok", data });
-      })
-      .catch((error: unknown) => {
-        if (!cancelled) {
-          setBackend({
-            status: "error",
-            message: error instanceof Error ? error.message : "Unknown error",
-          });
-        }
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
+function MissingKeyNotice() {
   return (
-    <main className="container">
-      <h1>JalSetu</h1>
-      <p className="subtitle">Frontend setup complete. No features built yet.</p>
-
-      <section className="card" aria-live="polite">
-        <h2>Backend connection</h2>
-        <p className="meta">
-          API: <code>{API_BASE_URL}</code>
+    <main className="page">
+      <section className="auth-wrap">
+        <h1>Auth not configured</h1>
+        <p className="muted">
+          Set <code>VITE_CLERK_PUBLISHABLE_KEY</code> in{" "}
+          <code>frontend/.env.development</code> (see{" "}
+          <code>.env.example</code>) with the publishable key from your Clerk
+          dashboard, then restart <code>npm run dev</code>.
         </p>
-        {backend.status === "loading" && <p>Checking backend health…</p>}
-        {backend.status === "ok" && (
-          <p className="ok">
-            Backend reachable — <code>{backend.data.status}</code> (
-            {backend.data.service} v{backend.data.version},{" "}
-            {backend.data.environment})
-          </p>
-        )}
-        {backend.status === "error" && (
-          <p className="error">
-            Backend unreachable. Start it with{" "}
-            <code>uvicorn app.main:app --reload</code> in <code>/backend</code>.
-            <br />
-            <span className="meta">{backend.message}</span>
-          </p>
-        )}
       </section>
     </main>
+  );
+}
+
+function App() {
+  if (!clerkKey) {
+    return <MissingKeyNotice />;
+  }
+
+  return (
+    <ClerkProvider publishableKey={clerkKey}>
+      <Routes>
+        <Route path="/" element={<Landing />} />
+        <Route path="/sign-in/*" element={<SignInPage />} />
+        <Route path="/sign-up/*" element={<SignUpPage />} />
+        <Route path="/no-access" element={<NoAccessPage />} />
+        <Route path="/app" element={<RoleHomePage />} />
+        <Route
+          path="/app/farmer"
+          element={
+            <RequireRole roles={[ROLES.FARMER]}>
+              <FarmerDashboardPage />
+            </RequireRole>
+          }
+        />
+        <Route
+          path="/app/jal-vigyani"
+          element={
+            <RequireRole roles={[ROLES.JAL_VIGYANI]}>
+              <JalVigyaniDashboardPage />
+            </RequireRole>
+          }
+        />
+        <Route
+          path="/app/dam"
+          element={
+            <RequireRole roles={[ROLES.DAM_OPERATOR]}>
+              <DamOperatorDashboardPage />
+            </RequireRole>
+          }
+        />
+        <Route path="*" element={<NoAccessPage />} />
+      </Routes>
+    </ClerkProvider>
   );
 }
 

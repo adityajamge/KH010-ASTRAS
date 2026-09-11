@@ -26,6 +26,12 @@ class Settings(BaseSettings):
     # Comma-separated string in .env, e.g. "http://localhost:5173,http://localhost:3000"
     BACKEND_CORS_ORIGINS: list[str] = ["http://localhost:5173"]
 
+    # Clerk authentication (https://dashboard.clerk.com).
+    # Empty secret = auth endpoints return 503 until configured.
+    CLERK_SECRET_KEY: str = ""
+    # Authorized parties (frontend origins) accepted in session tokens.
+    CLERK_AUTHORIZED_PARTIES: list[str] = ["http://localhost:5173"]
+
     @field_validator("BACKEND_CORS_ORIGINS", mode="before")
     @classmethod
     def split_cors_origins(cls, value: str | list[str]) -> list[str]:
