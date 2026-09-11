@@ -26,6 +26,12 @@ class Settings(BaseSettings):
     # Comma-separated string in .env, e.g. "http://localhost:5173,http://localhost:3000"
     BACKEND_CORS_ORIGINS: list[str] = ["http://localhost:5173"]
 
+    # Neon Postgres (https://console.neon.tech). Use the direct (non-pooled)
+    # connection string — this app is a long-lived server, not a
+    # per-request serverless function, so it keeps its own small pool and
+    # doesn't need PgBouncer. Empty = DB-backed endpoints are unavailable.
+    DATABASE_URL: str = ""
+
     # Clerk authentication (https://dashboard.clerk.com).
     # Empty secret = auth endpoints return 503 until configured.
     CLERK_SECRET_KEY: str = ""

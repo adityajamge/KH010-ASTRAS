@@ -26,8 +26,34 @@ Key env vars (see `backend/.env.example`):
 | `PORT`                 | `8000`                    |
 | `API_V1_PREFIX`        | `/api/v1`                 |
 | `BACKEND_CORS_ORIGINS` | `http://localhost:5173`   |
+| `DATABASE_URL`         | _(required for DB-backed endpoints)_ |
 
 Run tests: `pytest -q` (from `backend/`).
+
+## Database (Neon Postgres)
+
+1. Create a project at https://console.neon.tech and copy the **direct**
+   (non-pooled) connection string.
+2. Set it as `DATABASE_URL` in `backend/.env`:
+   ```text
+   DATABASE_URL=postgresql+psycopg://<user>:<password>@<host>/<dbname>?sslmode=require
+   ```
+3. Generate and apply the initial migration:
+   ```bash
+   cd backend
+   alembic revision --autogenerate -m "initial schema"
+   alembic upgrade head
+   ```
+
+Models live in `app/models/` (one file per domain: `farmer`, `network`,
+`request`, `conflict`, `monitoring`, `system`, plus shared `enums.py`),
+matching Pydantic read/create schemas in `app/schemas/`. `app/db/session.py`
+exposes a `get_db()` FastAPI dependency for a request-scoped
+`sqlalchemy.orm.Session`.
+
+Whenever models change, regenerate a migration with
+`alembic revision --autogenerate -m "<description>"` and review the
+generated file before running `alembic upgrade head`.
 
 ## Frontend (Vite + React + TS, http://localhost:5173)
 
