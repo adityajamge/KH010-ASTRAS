@@ -1,0 +1,45 @@
+.container {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 4rem 1.5rem;
+  text-align: center;
+}
+
+.subtitle {
+  color: #666;
+  margin-top: 0.25rem;
+}
+
+.card {
+  margin-top: 2rem;
+  padding: 1.5rem;
+  border: 1px solid #e2e2e2;
+  border-radius: 12px;
+  text-align: left;
+}
+
+.card h2 {
+  margin-top: 0;
+  font-size: 1.1rem;
+}
+
+.meta {
+  color: #666;
+  font-size: 0.9rem;
+}
+
+.ok {
+  color: #1a7f37;
+}
+
+.error {
+  color: #b42318;
+}
+
+code {
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 0.9em;
+  background: #f4f4f5;
+  padding: 0.1em 0.35em;
+  border-radius: 4px;
+}
