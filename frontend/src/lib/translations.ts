@@ -166,6 +166,7 @@ const hi: Record<string, string> = {
   "Conflict:": "विवाद:",
   Accepted: "स्वीकृत",
   Accept: "स्वीकार करें",
+  "Accepting…": "स्वीकार हो रहा है…",
   Object: "आपत्ति करें",
   "Proposal unchanged — supply and priority constraints leave no room.":
     "प्रस्ताव अपरिवर्तित — आपूर्ति और प्राथमिकता की सीमाओं के कारण कोई गुंजाइश नहीं।",
@@ -578,6 +579,7 @@ const mr: Record<string, string> = {
   "Conflict:": "वाद:",
   Accepted: "स्वीकृत",
   Accept: "स्वीकार करा",
+  "Accepting…": "स्वीकारले जात आहे…",
   Object: "आक्षेप घ्या",
   "Proposal unchanged — supply and priority constraints leave no room.":
     "प्रस्ताव अपरिवर्तित — पुरवठा आणि प्राधान्यक्रमाच्या मर्यादांमुळे वाव नाही.",

@@ -247,7 +247,7 @@ function MediationPanel({
             disabled={busy}
             onClick={() => act((token) => acceptProposal(token))}
           >
-            {t("Accept")}
+            {busy ? t("Accepting…") : t("Accept")}
           </button>
           <button
             type="button"
@@ -322,7 +322,7 @@ function MediationPanel({
                   disabled={busy}
                   onClick={() => act((token) => acceptProposal(token))}
                 >
-                  {t("Accept")}
+                  {busy ? t("Accepting…") : t("Accept")}
                 </button>
               </div>
             </>
@@ -558,7 +558,15 @@ function RequestSection({ data }: { data: FarmerData }) {
   const { getToken } = useAuth();
   const { t } = useLanguage();
   const navigate = useNavigate();
-  const today = new Date().toISOString().slice(0, 10);
+  // Local calendar date, not toISOString() (UTC) — near midnight IST, UTC is
+  // still "yesterday", which let a genuinely past date slip past this check.
+  const today = (() => {
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+  })();
   const [quantity, setQuantity] = useState("400");
   const [requestDate, setRequestDate] = useState(today);
   const [preferredTime, setPreferredTime] = useState("morning");
@@ -601,7 +609,7 @@ function RequestSection({ data }: { data: FarmerData }) {
       navigate("/app/farmer/allocation");
     } catch (err) {
       setError(
-        err instanceof ApiError ? err.message : t("Could not submit. Please try again."),
+        err instanceof ApiError ? t(err.message) : t("Could not submit. Please try again."),
       );
     } finally {
       setSubmitting(false);
