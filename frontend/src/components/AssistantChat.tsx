@@ -16,6 +16,41 @@ const EMPTY_MESSAGE_KEY: Record<string, string> = {
   "Dam Operator": "Ask about reservoir levels, releases, or supply planning.",
 };
 
+/** Renders `**bold**` segments within one line as <strong>. */
+function renderInlineBold(text: string) {
+  return text.split(/(\*\*[^*]+\*\*)/g).map((part, i) =>
+    part.startsWith("**") && part.endsWith("**") ? (
+      <strong key={i}>{part.slice(2, -2)}</strong>
+    ) : (
+      part
+    ),
+  );
+}
+
+/** Minimal markdown: `# heading` / `- list` lines and inline `**bold**`. */
+function renderMarkdownLite(text: string) {
+  return text.split("\n").map((line, i) => {
+    const heading = line.match(/^#{1,6}\s+(.*)$/);
+    if (heading) {
+      return (
+        <div key={i} className="assistant-msg-heading">
+          {renderInlineBold(heading[1])}
+        </div>
+      );
+    }
+    const listItem = line.match(/^[-*]\s+(.*)$/);
+    if (listItem) {
+      return (
+        <div key={i} className="assistant-msg-li">
+          <span className="assistant-msg-li-dot" aria-hidden="true" />
+          <span>{renderInlineBold(listItem[1])}</span>
+        </div>
+      );
+    }
+    return <div key={i}>{renderInlineBold(line)}</div>;
+  });
+}
+
 /**
  * Right-side assistant chat panel. Slides in when the water-drop logo is
  * clicked. Talks to the backend's LangGraph-orchestrated assistant; chat
@@ -58,6 +93,17 @@ export function AssistantChat({
   useEffect(() => {
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight });
   }, [messages, open]);
+
+  // Claude tends to keep matching the conversation's existing language even
+  // when told (via the system prompt) to switch — so a language change
+  // starts a fresh conversation instead of sending mixed-language history.
+  const prevLangRef = useRef(lang);
+  useEffect(() => {
+    if (prevLangRef.current !== lang) {
+      prevLangRef.current = lang;
+      setMessages([]);
+    }
+  }, [lang]);
 
   async function handleSend(event: FormEvent) {
     event.preventDefault();
@@ -125,7 +171,7 @@ export function AssistantChat({
                 key={msg.id}
                 className={`assistant-msg${msg.from === "user" ? " user" : ""}`}
               >
-                <p>{msg.text}</p>
+                <div className="assistant-msg-body">{renderMarkdownLite(msg.text)}</div>
               </div>
             ))}
             {sending && (
