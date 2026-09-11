@@ -153,12 +153,13 @@ function MediationPanel({
   onChanged: () => void;
 }) {
   const { getToken } = useAuth();
-  const { t, tf } = useLanguage();
+  const { t, tf, lang } = useLanguage();
   const [objecting, setObjecting] = useState(false);
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [result, setResult] = useState<ObjectionResult | null>(null);
   const [acceptance, setAcceptance] = useState<AcceptResult | null>(null);
+  const [objectionDetails, setObjectionDetails] = useState("");
 
   if (!mediation.has_proposal) {
     return (
@@ -213,6 +214,9 @@ function MediationPanel({
           {fmtQty(result?.allocated ?? mediation.allocated)} {t("units")}
         </span>
       </div>
+      {!result && mediation.mediator_message && (
+        <p className="negotiation-reason mediator-message">{mediation.mediator_message}</p>
+      )}
       {mediation.reason && (
         <p className="negotiation-reason">
           {t("Reason:")} {mediation.reason}
@@ -256,6 +260,16 @@ function MediationPanel({
         </div>
       ) : (
         <>
+          {!result && (
+            <textarea
+              className="objection-details"
+              placeholder={t("Optional: describe your situation in your own words…")}
+              value={objectionDetails}
+              onChange={(e) => setObjectionDetails(e.target.value)}
+              disabled={busy}
+              rows={2}
+            />
+          )}
           <div className="objection-options">
             {mediation.objection_options.map((option) => (
               <button
@@ -266,7 +280,9 @@ function MediationPanel({
                 onClick={() => {
                   const reason = OBJECTION_REASON_BY_LABEL[option] ?? "OTHER";
                   setObjecting(false);
-                  void act((token) => submitObjection(token, reason));
+                  void act((token) =>
+                    submitObjection(token, reason, objectionDetails.trim() || undefined, lang),
+                  );
                 }}
               >
                 {t(option)}
@@ -275,14 +291,20 @@ function MediationPanel({
           </div>
           {result && (
             <>
-              <p className="negotiation-reason">
-                {result.changed
-                  ? tf("Revised proposal: {allocated} units (was {previous}).", {
-                      allocated: fmtQty(result.allocated),
-                      previous: fmtQty(result.previous_allocated),
-                    })
-                  : t("Proposal unchanged — supply and priority constraints leave no room.")}
-              </p>
+              {result.mediator_message ? (
+                <p className="negotiation-reason mediator-message">
+                  {result.mediator_message}
+                </p>
+              ) : (
+                <p className="negotiation-reason">
+                  {result.changed
+                    ? tf("Revised proposal: {allocated} units (was {previous}).", {
+                        allocated: fmtQty(result.allocated),
+                        previous: fmtQty(result.previous_allocated),
+                      })
+                    : t("Proposal unchanged — supply and priority constraints leave no room.")}
+                </p>
+              )}
               {result.evidence.length > 0 && (
                 <ul className="plain-list" style={{ marginTop: 12 }}>
                   {result.evidence.map((line) => (

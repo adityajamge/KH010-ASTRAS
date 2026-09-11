@@ -286,6 +286,7 @@ export interface MediationView {
   conflict_code: string | null;
   evidence: string[];
   objection_options: string[];
+  mediator_message: string | null;
 }
 
 export type ObjectionReason =
@@ -313,6 +314,7 @@ export interface ObjectionResult {
   evidence: string[];
   conflict_code: string | null;
   urgency: string;
+  mediator_message: string | null;
 }
 
 export interface AgreementRead {
@@ -356,10 +358,12 @@ export function submitObjection(
   token: string,
   reason: ObjectionReason,
   details?: string,
+  lang: string = "en",
 ): Promise<ObjectionResult> {
   return apiPost<ObjectionResult>("/api/v1/mediation/objections", token, {
     reason,
     details: details ?? null,
+    lang,
   });
 }
 

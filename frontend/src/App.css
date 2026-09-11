@@ -907,6 +907,28 @@
   margin-top: 16px;
 }
 
+.objection-details {
+  width: 100%;
+  margin-top: 12px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--hairline-strong);
+  background: var(--canvas);
+  color: var(--ink);
+  font: inherit;
+  font-size: 13px;
+  resize: vertical;
+}
+
+.mediator-message {
+  color: var(--ink);
+  background: var(--surface-2, rgba(37, 99, 235, 0.06));
+  border: 1px solid var(--hairline-strong);
+  border-radius: 10px;
+  padding: 10px 12px;
+  line-height: 1.5;
+}
+
 .chip {
   font-size: 13px;
   padding: 6px 12px;

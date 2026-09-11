@@ -53,6 +53,11 @@ class Objection(Base, TimestampMixin):
     reason: Mapped[ObjectionReason]
     details: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[ObjectionStatus] = mapped_column(default=ObjectionStatus.PENDING)
+    #: Mediation agent's negotiation-style reply, grounded in the engine's
+    #: numbers/evidence (never a source of numbers itself). Null when the
+    #: LLM was unconfigured or unreachable — the deterministic reason still
+    #: covers that case.
+    mediator_message: Mapped[str | None] = mapped_column(Text, nullable=True)
 
 
 class Agreement(Base, TimestampMixin):

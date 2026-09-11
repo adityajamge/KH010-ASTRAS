@@ -1,6 +1,7 @@
 """Farmer-dashboard shapes: one summary call powers the whole dashboard."""
 
 from datetime import date, datetime
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -69,11 +70,13 @@ class MediationView(ORMBase):
     conflict_code: str | None
     evidence: list[str]
     objection_options: list[str]
+    mediator_message: str | None = None
 
 
 class ObjectionSubmit(BaseModel):
     reason: ObjectionReason
     details: str | None = Field(default=None, max_length=500)
+    lang: Literal["en", "hi", "mr"] = "en"
 
 
 class ObjectionResult(ORMBase):
@@ -85,6 +88,7 @@ class ObjectionResult(ORMBase):
     evidence: list[str]
     conflict_code: str | None
     urgency: str
+    mediator_message: str | None = None
 
 
 class AcceptResult(ORMBase):

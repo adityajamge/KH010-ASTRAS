@@ -10,6 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.core.auth import AuthUser, require_farmer
+from app.models.conflict import Objection
 from app.models.request import Allocation, WaterRequest
 from app.schemas.conflict import AgreementRead
 from app.schemas.dashboard import (
@@ -74,12 +75,25 @@ def read_own_mediation(
     canal = db.get(Canal, farmer.canal_id) if farmer.canal_id else None
     evidence: list[str] = []
     conflict_code = None
+    mediator_message = None
     if canal is not None:
         claims, _ = open_claims(db, canal.id)
         outcome = allocate(canal_available_water(canal), claims)
         evidence = outcome.evidence
         conflict = open_conflict(db, canal.id)
         conflict_code = conflict.conflict_code if conflict else None
+        if conflict is not None:
+            last_objection = (
+                db.query(Objection)
+                .filter(
+                    Objection.conflict_id == conflict.id,
+                    Objection.farmer_id == farmer.id,
+                )
+                .order_by(Objection.id.desc())
+                .first()
+            )
+            if last_objection is not None:
+                mediator_message = last_objection.mediator_message
     return MediationView(
         has_proposal=True,
         requested=float(req.quantity_requested) if req else 0,
@@ -89,6 +103,7 @@ def read_own_mediation(
         conflict_code=conflict_code,
         evidence=evidence,
         objection_options=OBJECTION_OPTIONS,
+        mediator_message=mediator_message,
     )
 
 
@@ -102,7 +117,7 @@ def submit_objection(
     farmer = get_own_farmer(db, user)
     try:
         result = record_objection(
-            db, farmer, user, payload.reason, payload.details
+            db, farmer, user, payload.reason, payload.details, payload.lang
         )
     except ValueError as exc:
         message = str(exc)

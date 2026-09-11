@@ -45,6 +45,16 @@ from app.services.allocation import (
     build_reason,
     plan_slots,
 )
+from app.services.mediation_agent import mediate_objection
+
+#: Human-readable labels for the mediation agent's prompt (PS14 §16/§21).
+_OBJECTION_REASON_LABEL: dict[ObjectionReason, str] = {
+    ObjectionReason.NEED_MORE_WATER: "Need more water",
+    ObjectionReason.NEED_DIFFERENT_TIME: "Need a different time slot",
+    ObjectionReason.CROP_CRITICAL: "Crop is in a critical stage",
+    ObjectionReason.EMERGENCY: "Emergency",
+    ObjectionReason.OTHER: "Other",
+}
 
 #: Request states that still take part in an allocation round.
 OPEN_REQUEST_STATUSES = (
@@ -408,12 +418,15 @@ def record_objection(
     user: AuthUser,
     reason: ObjectionReason,
     details: str | None,
+    lang: str = "en",
 ) -> dict:
     """File an objection and recalculate with the farmer's priority boosted.
 
     The objection becomes a structured constraint (PS14 §16): urgency rises
     one level for the recalculation round, the engine reruns, and the farmer
-    gets a revised — or evidence-backed unchanged — proposal.
+    gets a revised — or evidence-backed unchanged — proposal. The mediation
+    agent (LLM) then writes a negotiation reply grounded in that outcome —
+    it explains the decision, it never computes one.
     """
     canal = db.get(Canal, farmer.canal_id) if farmer.canal_id else None
     if canal is None:
@@ -494,6 +507,26 @@ def record_objection(
         ),
         NotificationSeverity.INFO,
     )
+
+    mediator_message = mediate_objection(
+        farmer_name=farmer.name,
+        canal_name=canal.name,
+        reason_label=_OBJECTION_REASON_LABEL.get(reason, reason.value),
+        details=details,
+        requested=float(req.quantity_requested),
+        previous_allocated=previous_qty,
+        revised_allocated=revised_qty,
+        changed=changed,
+        urgency=req.urgency.value,
+        total_demand=outcome.total_demand,
+        available_water=outcome.available_water,
+        shortage=outcome.shortage,
+        evidence=outcome.evidence,
+        lang=lang,
+    )
+    objection.mediator_message = mediator_message
+    db.flush()
+
     audit(
         db,
         "objection.recorded",
@@ -512,6 +545,7 @@ def record_objection(
         "evidence": outcome.evidence,
         "conflict_code": conflict.conflict_code,
         "urgency": req.urgency.value,
+        "mediator_message": mediator_message,
     }
 
 

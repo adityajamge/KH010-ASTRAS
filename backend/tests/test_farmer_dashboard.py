@@ -13,6 +13,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from app.core.auth import AuthUser, require_farmer
+from app.core.config import settings
 from app.db.base import Base
 from app.db.session import get_db
 from app.main import app
@@ -31,6 +32,13 @@ from app.services.allocation import Claim, allocate, detect_shortage, plan_slots
 
 TEST_CLERK_IDS = {"f1": "clerk-farmer-1", "f2": "clerk-farmer-2"}
 _current = {"key": "f1"}
+
+
+@pytest.fixture(autouse=True)
+def _no_mediation_agent(monkeypatch):
+    """Keep these tests fast/deterministic regardless of the real .env —
+    objection tests must not depend on a live Anthropic call."""
+    monkeypatch.setattr(settings, "ANTHROPIC_API_KEY", "")
 
 
 @pytest.fixture()
@@ -229,6 +237,8 @@ def test_objection_boosts_and_revises(client, seed, db_session):
     body = response.json()
     assert body["allocated"] >= before - 0.01  # boost never hurts the objector
     assert body["evidence"], "unchanged proposals must still carry evidence"
+    # No ANTHROPIC_API_KEY in tests: mediator reply is None, never a crash.
+    assert body["mediator_message"] is None
     assert (
         db_session.query(Objection).filter_by(reason=ObjectionReason.NEED_MORE_WATER).count()
         == 1

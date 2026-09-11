@@ -177,6 +177,8 @@ const hi: Record<string, string> = {
     "संशोधित प्रस्ताव: {allocated} इकाई (पहले {previous} थी)।",
   "— agreement {code} recorded (version {version}).":
     "— समझौता {code} दर्ज किया गया (संस्करण {version})।",
+  "Optional: describe your situation in your own words…":
+    "वैकल्पिक: अपनी स्थिति अपने शब्दों में बताएं…",
 
   // Objection reasons (raw backend option labels)
   "Need more water": "अधिक पानी चाहिए",
@@ -586,6 +588,8 @@ const mr: Record<string, string> = {
     "सुधारित प्रस्ताव: {allocated} एकके (आधी {previous} होते).",
   "— agreement {code} recorded (version {version}).":
     "— करार {code} नोंदवला गेला (आवृत्ती {version}).",
+  "Optional: describe your situation in your own words…":
+    "पर्यायी: तुमची परिस्थिती तुमच्या शब्दांत सांगा…",
 
   // Objection reasons (raw backend option labels)
   "Need more water": "अधिक पाणी हवे",
