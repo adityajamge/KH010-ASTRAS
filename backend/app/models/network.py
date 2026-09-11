@@ -1,4 +1,4 @@
-from sqlalchemy import ForeignKey, Numeric, String
+from sqlalchemy import ForeignKey, Numeric, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base, TimestampMixin
@@ -24,6 +24,13 @@ class Dam(Base, TimestampMixin):
     current_storage: Mapped[float] = mapped_column(Numeric(12, 2))
     inflow: Mapped[float] = mapped_column(Numeric(10, 2))
     outflow: Mapped[float] = mapped_column(Numeric(10, 2))
+    # Reservoir level in metres — published by the dam operator.
+    water_level: Mapped[float] = mapped_column(Numeric(6, 2), default=118.4)
+    # Rainfall over the last 24h in mm + short text forecast.
+    rainfall_last_24h: Mapped[float] = mapped_column(Numeric(8, 2), default=18)
+    rainfall_forecast: Mapped[str] = mapped_column(
+        Text, default="Medium — 12mm expected over next 24h"
+    )
 
 
 class Canal(Base, TimestampMixin):

@@ -14,6 +14,7 @@ const STATUS_TONE: Record<string, PillTone> = {
   "under delivery": "warn",
   "minor difference": "warn",
   "investigation required": "danger",
+  "needs investigation": "danger",
   disputed: "danger",
   cancelled: "danger",
   deviation: "danger",

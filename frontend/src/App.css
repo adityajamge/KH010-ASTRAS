@@ -1375,6 +1375,10 @@
   background: var(--success);
 }
 
+.status-dot.warn {
+  background: var(--danger);
+}
+
 .status-dot.neutral {
   background: var(--ink-tertiary);
 }
@@ -1436,6 +1440,62 @@
   .home-stats {
     grid-template-columns: 1fr;
   }
+}
+
+/* ---------- Reservoir flow chain ---------- */
+.flow-chain {
+  display: flex;
+  flex-direction: column;
+}
+
+.flow-stage-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 0 2px;
+}
+
+.flow-stage-label {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  color: var(--ink-subtle);
+}
+
+.flow-stage-value {
+  font-family: var(--font-mono);
+  font-size: 16px;
+  color: var(--ink);
+  white-space: nowrap;
+}
+
+.flow-stage-note {
+  font-size: 12px;
+  color: var(--ink-subtle);
+  margin: 0 0 2px;
+}
+
+.flow-arrow {
+  display: block;
+  width: 2px;
+  height: 14px;
+  background: var(--hairline-strong);
+  margin: 6px 0 6px 8px;
+  position: relative;
+}
+
+.flow-arrow::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -1px;
+  width: 7px;
+  height: 7px;
+  border-right: 2px solid var(--hairline-strong);
+  border-bottom: 2px solid var(--hairline-strong);
+  transform: translateX(-50%) rotate(45deg);
 }
 
 /* ---------- Route transition indicator ---------- */

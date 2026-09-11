@@ -23,7 +23,12 @@ ROLE_DAM_OPERATOR = "dam_operator"
 ALL_ROLES = (ROLE_FARMER, ROLE_JAL_VIGYANI, ROLE_DAM_OPERATOR)
 
 _IDENTITY_CACHE_TTL_SECONDS = 60
-_identity_cache: dict[str, tuple[str | None, int | None, float]] = {}
+# Profiles still missing their assignment (no role yet, or a dam-scoped role
+# without dam_id) re-check much sooner: that metadata is usually saved right
+# after the account's first dashboard visit, and a full 60s of "not assigned"
+# errors after saving is a support ticket waiting to happen.
+_IDENTITY_CACHE_TTL_INCOMPLETE_SECONDS = 5
+_identity_cache: dict[str, tuple[str | None, int | None, float, float]] = {}
 
 
 @dataclass
@@ -47,7 +52,7 @@ def _clerk_client() -> Clerk:
 def _cached_identity(clerk: Clerk, user_id: str) -> tuple[str | None, int | None]:
     now = time.monotonic()
     cached = _identity_cache.get(user_id)
-    if cached and now - cached[2] < _IDENTITY_CACHE_TTL_SECONDS:
+    if cached and now - cached[2] < cached[3]:
         return cached[0], cached[1]
     user = clerk.users.get(user_id=user_id)
     metadata = user.public_metadata or {}
@@ -55,7 +60,9 @@ def _cached_identity(clerk: Clerk, user_id: str) -> tuple[str | None, int | None
     role = role if isinstance(role, str) else None
     dam_id = metadata.get("dam_id")
     dam_id = dam_id if isinstance(dam_id, int) else None
-    _identity_cache[user_id] = (role, dam_id, now)
+    complete = role is not None and (role == ROLE_FARMER or dam_id is not None)
+    ttl = _IDENTITY_CACHE_TTL_SECONDS if complete else _IDENTITY_CACHE_TTL_INCOMPLETE_SECONDS
+    _identity_cache[user_id] = (role, dam_id, now, ttl)
     return role, dam_id
 
 

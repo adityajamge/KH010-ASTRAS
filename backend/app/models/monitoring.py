@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import ARRAY, DateTime, ForeignKey, Numeric, String, func
+from sqlalchemy import ARRAY, DateTime, ForeignKey, JSON, Numeric, String, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base, TimestampMixin
@@ -34,4 +34,7 @@ class Anomaly(Base, TimestampMixin):
         default=AnomalyStatus.INVESTIGATION_REQUIRED
     )
     # e.g. ["Leakage", "Gate mismatch"] — docs §4.7 possible causes.
-    possible_causes: Mapped[list[str]] = mapped_column(ARRAY(String))
+    # JSON variant keeps the test suite runnable on SQLite; Postgres keeps ARRAY.
+    possible_causes: Mapped[list[str]] = mapped_column(
+        ARRAY(String).with_variant(JSON, "sqlite")
+    )
