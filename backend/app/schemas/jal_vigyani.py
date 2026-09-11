@@ -103,3 +103,22 @@ class ConflictDecisionRequest(BaseModel):
 
     action: Literal["approve", "request_revision", "escalate"]
     note: str | None = None
+
+
+class FarmerCanalRow(BaseModel):
+    """One farmer visible for canal assignment: unassigned farmers plus
+    farmers on this dam's canals. Farmers on other dams never appear."""
+
+    farmer_id: int
+    farmer_name: str
+    village: str
+    phone: str
+    canal_id: int | None
+    canal_name: str | None
+
+
+class CanalAssignmentRequest(BaseModel):
+    """Assign (or with null, unassign) a farmer's canal. The canal must
+    belong to the caller's dam — cross-dam assignment is rejected."""
+
+    canal_id: int | None = None

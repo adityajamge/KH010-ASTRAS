@@ -169,25 +169,30 @@ function Landing() {
 
       <main className="page" id="top">
         <section className="hero">
-          <p className="eyebrow">PS14 · Autonomous water-sharing mediation</p>
-          <h1>
-            Fair water for <span className="accent">every farm</span> on the
-            canal.
-          </h1>
-          <p className="subhead">
-            JalSetu is a digital mediation layer for irrigation disputes. An AI
-            mediator negotiates in plain language while a deterministic engine
-            computes fair allocations — transparently, and on the record.
-          </p>
-          <div className="hero-ctas">
-            <a className="btn btn-primary" href="#demo">
-              See how it works
-            </a>
-            <a className="btn btn-secondary" href="#roles">
-              Meet the roles
-            </a>
+          <div className="hero-content">
+            <p className="eyebrow">PS14 · Autonomous water-sharing mediation</p>
+            <h1>
+              Fair water for <span className="accent">every farm</span> on the
+              canal.
+            </h1>
+            <p className="subhead">
+              JalSetu is a digital mediation layer for irrigation disputes. An
+              AI mediator negotiates in plain language while a deterministic
+              engine computes fair allocations — transparently, and on the
+              record.
+            </p>
+            <div className="hero-ctas">
+              <a className="btn btn-primary" href="#demo">
+                See how it works
+              </a>
+              <a className="btn btn-secondary" href="#roles">
+                Meet the roles
+              </a>
+            </div>
           </div>
+        </section>
 
+        <section className="panel-section">
           <div className="product-panel" aria-label="Canal network preview">
             <div className="panel-header">
               <span className="panel-title">CANAL NETWORK · F10 CONFLICT</span>
