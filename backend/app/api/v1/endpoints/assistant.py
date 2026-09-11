@@ -4,11 +4,11 @@ memory: the client resends the turns it wants Claude to see on every
 request. (A memory framework, e.g. mem0 or Supermemory, is an intentional
 later addition, not built here.)
 
-Farmers and Jal Vigyani get real tools bound to their own data — see
-app/services/farmer_agent_tools.py and app/services/jal_vigyani_agent_tools.py
-— so the agent can read live dashboard/conflict state and take real actions
-instead of just talking about the app. The dam operator agent is not built
-yet; that role gets a plain, tool-less chat for now, same as before.
+Every role now has real tools bound to its own data — see
+app/services/farmer_agent_tools.py, app/services/jal_vigyani_agent_tools.py,
+and app/services/dam_operator_agent_tools.py — so the agent can read live
+dashboard/conflict/supply state and take real actions instead of just
+talking about the app.
 """
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -22,6 +22,7 @@ from app.core.auth import ROLE_DAM_OPERATOR, ROLE_FARMER, ROLE_JAL_VIGYANI, Auth
 from app.core.config import settings
 from app.db.session import get_db
 from app.schemas.assistant import ChatRequest, ChatResponse
+from app.services.dam_operator_agent_tools import build_dam_operator_tools
 from app.services.farmer_agent_tools import build_farmer_tools
 from app.services.jal_vigyani_agent_tools import build_jal_vigyani_tools
 
@@ -90,6 +91,26 @@ _JAL_VIGYANI_SYSTEM_PROMPT = (
     "their message in a different language."
 )
 
+_DAM_OPERATOR_SYSTEM_PROMPT = (
+    "You are the JalSetu assistant for a dam operator. You have tools to "
+    "read this account's real, live dam data — reservoir/storage stats, "
+    "canal releases, rainfall, and the water accounting flow chain — and to "
+    "publish updated supply-side numbers (storage, inflow, outflow, water "
+    "level, rainfall). Call get_dam_dashboard for status questions, and "
+    "get_dam_details first if you need the dam's exact current numeric "
+    "values (e.g. to compute a new total from a change the operator "
+    "describes). Only call publish_supply_state once the operator has "
+    "given you a specific, confirmed new value for each field you're "
+    "about to change — never guess or estimate a number yourself, and pass "
+    "only the fields that actually changed. This update immediately "
+    "affects every downstream allocation calculation, so ask a clarifying "
+    "question rather than assume. After a tool call, explain the result in "
+    "plain language, never as raw JSON. Be concise. Always reply in "
+    "{language} — the user has selected {language} as the app's display "
+    "language, so answer in {language} even if they type their message in "
+    "a different language."
+)
+
 
 def _extract_text(message: BaseMessage) -> str:
     """ChatAnthropic returns `content` as a plain string, or — when the
@@ -135,6 +156,9 @@ async def chat(
     elif user.role == ROLE_JAL_VIGYANI:
         tools = build_jal_vigyani_tools(db, user, payload.lang)
         system_prompt = _JAL_VIGYANI_SYSTEM_PROMPT.format(language=language)
+    elif user.role == ROLE_DAM_OPERATOR:
+        tools = build_dam_operator_tools(db, user, payload.lang)
+        system_prompt = _DAM_OPERATOR_SYSTEM_PROMPT.format(language=language)
     else:
         tools = []
         system_prompt = _GENERIC_SYSTEM_PROMPT.format(
