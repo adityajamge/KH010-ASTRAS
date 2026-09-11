@@ -10,6 +10,7 @@ import {
 import { useAuth, useUser } from "@clerk/clerk-react";
 import { DashboardShell, FARMER_NAV } from "../../components/DashboardShell";
 import { Pill } from "../../components/dashboard/Pill";
+import { DigitalTwin3D } from "../../components/twin/DigitalTwin3D";
 import {
   ApiError,
   OBJECTION_REASON_BY_LABEL,
@@ -994,6 +995,10 @@ const SECTION_META: Record<string, { title: (name: string) => string; subtitle: 
     title: () => "Delivery status",
     subtitle: "Authorized versus actually delivered water.",
   },
+  "/app/farmer/twin": {
+    title: () => "Digital Twin",
+    subtitle: "Dam, canal and farm plots — live from your network state.",
+  },
   "/app/farmer/alerts": {
     title: () => "Alerts",
     subtitle: "Water status and system notifications.",
@@ -1028,6 +1033,7 @@ export function FarmerDashboardPage() {
         <Route path="mediation" element={<MediationSection data={data} />} />
         <Route path="schedule" element={<ScheduleSection data={data} />} />
         <Route path="delivery" element={<DeliverySection data={data} />} />
+        <Route path="twin" element={<DigitalTwin3D />} />
         <Route path="alerts" element={<AlertsSection data={data} />} />
         <Route path="history" element={<HistorySection data={data} />} />
         <Route path="help" element={<HelpSection />} />

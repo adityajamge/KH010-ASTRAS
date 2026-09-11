@@ -10,12 +10,11 @@ from sqlalchemy.orm import Session
 
 from app.core.auth import AuthUser, require_farmer
 from app.db.session import get_db
-from app.models.network import Canal
 from app.models.request import WaterRequest
 from app.schemas.dashboard import WaterRequestSubmit
 from app.schemas.request import WaterRequestRead
 from app.services.farmers import get_own_farmer
-from app.services.mediation import notify, run_allocation_cycle
+from app.services.requests import NoCanalAssigned, submit_water_request
 
 router = APIRouter(prefix="/requests", tags=["requests"])
 
@@ -28,31 +27,20 @@ def submit_request(
 ) -> WaterRequest:
     """Submit a water requirement and get an allocation proposal back."""
     farmer = get_own_farmer(db, user)
-    canal = db.get(Canal, farmer.canal_id) if farmer.canal_id else None
-    if canal is None:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="No canal assigned — complete onboarding with a canal first",
+    try:
+        req = submit_water_request(
+            db,
+            farmer,
+            quantity_requested=payload.quantity_requested,
+            request_date=payload.request_date,
+            preferred_time=payload.preferred_time,
+            duration_hours=payload.duration_hours,
+            crop=payload.crop,
+            urgency=payload.urgency,
+            actor_id=user.user_id,
         )
-    req = WaterRequest(
-        farmer_id=farmer.id,
-        quantity_requested=payload.quantity_requested,
-        request_date=payload.request_date,
-        preferred_time=payload.preferred_time,
-        duration_hours=payload.duration_hours,
-        crop=payload.crop,
-        urgency=payload.urgency,
-    )
-    db.add(req)
-    db.flush()
-    notify(
-        db,
-        farmer.id,
-        f"Request submitted: {payload.quantity_requested:.0f} units for "
-        f"{payload.request_date.isoformat()}",
-        f"Crop {payload.crop}, preferred slot {payload.preferred_time}.",
-    )
-    run_allocation_cycle(db, canal, actor_id=user.user_id)
+    except NoCanalAssigned as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
     db.commit()
     db.refresh(req)
     return req

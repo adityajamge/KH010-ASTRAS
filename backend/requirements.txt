@@ -8,3 +8,10 @@ sqlalchemy>=2.0
 psycopg[binary]>=3.1
 alembic>=1.13
 pytest>=8
+# AI Coordinator (app/services/llm_client.py) — either provider, chosen via
+# LLM_PROVIDER; both installed so switching is a config change, not a deploy.
+anthropic>=0.40
+openai>=1.50
+# Twilio channel (app/services/twilio_client.py, app/api/v1/endpoints/twilio_webhook.py)
+twilio>=9
+python-multipart>=0.0.9

@@ -3,6 +3,7 @@ import { Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { useAuth } from "@clerk/clerk-react";
 import { DashboardShell, DAM_NAV } from "../../components/DashboardShell";
 import { StatGrid } from "../../components/dashboard/StatGrid";
+import { DigitalTwin3D } from "../../components/twin/DigitalTwin3D";
 import { Pill } from "../../components/dashboard/Pill";
 import {
   ApiError,
@@ -416,6 +417,10 @@ const SECTION_META: Record<string, { title: string; subtitle: string }> = {
     title: "Canal-wise release",
     subtitle: "Requested, approved, released and received volumes.",
   },
+  "/app/dam/twin": {
+    title: "Digital Twin",
+    subtitle: "Dam, canals and farm plots — live from the network state.",
+  },
   "/app/dam/help": {
     title: "Help",
     subtitle: "Support for supply operations.",
@@ -449,6 +454,7 @@ export function DamOperatorDashboardPage() {
             </div>
           }
         />
+        <Route path="twin" element={<DigitalTwin3D />} />
         <Route
           path="help"
           element={

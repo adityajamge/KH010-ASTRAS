@@ -99,6 +99,65 @@ How it works:
   return 401 when signed out, 403 for the wrong role, 503 when
   `CLERK_SECRET_KEY` is not configured.
 
+## AI Coordinator (website chat + Twilio)
+
+The chat assistant (farmer dashboard chat panel, and the Twilio channel) is
+powered by `app/services/ai_coordinator.py` — one agent loop, shared by both
+surfaces, that calls the same deterministic services
+(`app/services/mediation.py`, `app/services/requests.py`) the REST endpoints
+use. It never invents litres or evidence; it only decides which tool to call
+and drafts the reply.
+
+1. Pick a provider and set its key in `backend/.env` (see
+   `backend/.env.example`):
+   ```text
+   LLM_PROVIDER=anthropic        # or "openai"
+   ANTHROPIC_API_KEY=sk-ant-...
+   ANTHROPIC_MODEL=claude-sonnet-5
+   ```
+   Leaving the selected provider's key empty is fine — the assistant replies
+   with a "not connected" notice instead of erroring.
+2. Apply the new migration (`assistant_messages` table):
+   ```bash
+   cd backend
+   alembic upgrade head
+   ```
+3. Website chat: `POST /api/v1/assistant/message` (farmer, Jal Vigyani, or
+   dam operator — the same panel calls it for all three) and
+   `GET /api/v1/assistant/history`. No frontend env changes needed.
+
+### Twilio channel (WhatsApp/SMS prototype)
+
+Twilio is a transport only — inbound messages are resolved to a farmer by
+phone number and handed to the exact same `ai_coordinator.handle_message`
+the website chat calls.
+
+1. Create a trial account at https://console.twilio.com and activate the
+   WhatsApp sandbox (Messaging → Try it out → Send a WhatsApp message).
+2. Set in `backend/.env`:
+   ```text
+   TWILIO_ACCOUNT_SID=AC...
+   TWILIO_AUTH_TOKEN=...
+   TWILIO_WHATSAPP_FROM=whatsapp:+14155238886   # the sandbox number
+   ```
+3. Point the sandbox's "when a message comes in" webhook at
+   `{PUBLIC_API_URL}/api/v1/twilio/inbound` (needs a public HTTPS URL —
+   `ngrok http 8000` works for local testing). Set
+   `TWILIO_VALIDATE_SIGNATURE=false` only while testing behind a tunnel that
+   changes the signed URL; leave `true` in any real deployment.
+4. A farmer must complete onboarding on the website with the same phone
+   number they message from — the webhook replies with an onboarding prompt
+   for unrecognized numbers rather than guessing an identity.
+
+## 3D Digital Twin
+
+`GET /api/v1/network/state` feeds the dam → canal → farms 3D view
+(`frontend/src/components/twin/`, nav item "Digital Twin" on all three
+dashboards). It composes the same dam/farmer/conflict services the
+dashboards already use (`app/services/network_state.py`) — no separate
+business logic. `npm install` (already run above) pulls in `three`,
+`@react-three/fiber`, and `@react-three/drei`; no extra env vars needed.
+
 ## Health checks
 
 | Method | URL                        | Description            |

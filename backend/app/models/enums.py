@@ -108,3 +108,17 @@ class ActorType(str, enum.Enum):
     DAM_OPERATOR = "dam_operator"
     SYSTEM = "system"
     AI_AGENT = "ai_agent"
+
+
+class ChannelType(str, enum.Enum):
+    """Which surface an assistant message came through — same backend and
+    agent workflow either way (docs/PS14_Water_Sharing_Mediation_Agent.md
+    "AI Chat + Twilio")."""
+
+    WEB = "web"
+    TWILIO = "twilio"
+
+
+class MessageRole(str, enum.Enum):
+    USER = "user"
+    ASSISTANT = "assistant"

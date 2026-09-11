@@ -707,3 +707,107 @@ export function decideConflict(
     body: JSON.stringify({ action, note: note ?? null }),
   });
 }
+
+// ---------- AI Coordinator (website chat) ----------
+
+export interface AssistantMessageOut {
+  reply: string;
+}
+
+export type AssistantHistoryRole = "user" | "assistant";
+
+export interface AssistantHistoryItem {
+  role: AssistantHistoryRole;
+  content: string;
+  channel: "web" | "twilio";
+  created_at: string;
+}
+
+/**
+ * POST {API_URL}/api/v1/assistant/message — same AI Coordinator, allocation
+ * engine and mediation workflow the Twilio channel uses (see
+ * backend/app/services/ai_coordinator.py).
+ */
+export function sendAssistantMessage(
+  token: string,
+  text: string,
+): Promise<AssistantMessageOut> {
+  return apiPost<AssistantMessageOut>("/api/v1/assistant/message", token, { text });
+}
+
+/** GET {API_URL}/api/v1/assistant/history — this account's website chat history. */
+export function getAssistantHistory(token: string): Promise<AssistantHistoryItem[]> {
+  return authedRequest<AssistantHistoryItem[]>("/api/v1/assistant/history", token);
+}
+
+// ---------- 3D Digital Twin (network state) ----------
+
+export type TwinStatus =
+  | "normal"
+  | "shortage"
+  | "conflict"
+  | "pending_mediation"
+  | "approved"
+  | "delivery_issue";
+
+export interface TwinFarmer {
+  farmer_id: number;
+  name: string;
+  canal_id: number;
+  order_index: number;
+  position_label: "head" | "middle" | "tail";
+  requested: number | null;
+  allocated: number | null;
+  delivered: number | null;
+  shortfall: number | null;
+  status: string;
+  has_conflict: boolean;
+  has_pending_objection: boolean;
+  twin_status: TwinStatus;
+}
+
+export interface TwinCanal {
+  canal_id: number;
+  name: string;
+  capacity: number;
+  current_flow: number;
+  water_level: number;
+  flow_state: "low" | "normal" | "high";
+  release_status: string;
+  requested: number;
+  approved: number;
+  released: number;
+  received: number;
+  difference: number;
+  active_conflicts: number;
+  active_anomalies: number;
+  farmers: TwinFarmer[];
+}
+
+export interface TwinReservoir {
+  dam_id: number;
+  name: string;
+  water_level: number;
+  current_storage: number;
+  total_available: number;
+  inflow: number;
+  outflow: number;
+  rainfall_last_24h: number;
+  status: string;
+  status_tone: "ok" | "warn" | "danger" | null;
+}
+
+export interface NetworkStateResponse {
+  is_simulated: boolean;
+  simulation_note: string;
+  generated_at: string;
+  dam: TwinReservoir;
+  canals: TwinCanal[];
+  total_active_conflicts: number;
+  total_active_anomalies: number;
+}
+
+/** GET {API_URL}/api/v1/network/state — feeds the 3D digital twin. */
+export function getNetworkState(token: string): Promise<NetworkStateResponse> {
+  return authedRequest<NetworkStateResponse>("/api/v1/network/state", token);
+}

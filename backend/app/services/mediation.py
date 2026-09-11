@@ -374,6 +374,55 @@ def _sync_conflict(
     )
 
 
+def mediation_view(db: Session, farmer: Farmer) -> dict:
+    """The farmer's current proposal + glass-box evidence (PS14 §19).
+
+    Shared by GET /mediation/me and the AI Coordinator's ``get_status`` tool
+    (app/services/ai_coordinator.py) so the chat assistant answers "why did
+    my water change" from the same numbers the dashboard shows — never from
+    the LLM's own arithmetic.
+    """
+    allocation = (
+        db.query(Allocation)
+        .join(WaterRequest, Allocation.request_id == WaterRequest.id)
+        .filter(
+            WaterRequest.farmer_id == farmer.id,
+            Allocation.status.in_(REWRITABLE_ALLOCATION_STATUSES),
+        )
+        .order_by(Allocation.id.desc())
+        .first()
+    )
+    if allocation is None:
+        return {
+            "has_proposal": False,
+            "requested": 0.0,
+            "allocated": 0.0,
+            "reason": None,
+            "status": None,
+            "conflict_code": None,
+            "evidence": [],
+        }
+    req = db.get(WaterRequest, allocation.request_id)
+    canal = db.get(Canal, farmer.canal_id) if farmer.canal_id else None
+    evidence: list[str] = []
+    conflict_code = None
+    if canal is not None:
+        claims, _ = open_claims(db, canal.id)
+        outcome = allocate(canal_available_water(canal), claims)
+        evidence = outcome.evidence
+        conflict = open_conflict(db, canal.id)
+        conflict_code = conflict.conflict_code if conflict else None
+    return {
+        "has_proposal": True,
+        "requested": float(req.quantity_requested) if req else 0.0,
+        "allocated": float(allocation.allocated_quantity),
+        "reason": allocation.reason,
+        "status": allocation.status.value,
+        "conflict_code": conflict_code,
+        "evidence": evidence,
+    }
+
+
 def record_objection(
     db: Session,
     farmer: Farmer,

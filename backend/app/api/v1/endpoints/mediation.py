@@ -10,7 +10,6 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.core.auth import AuthUser, require_farmer
-from app.models.request import Allocation, WaterRequest
 from app.schemas.conflict import AgreementRead
 from app.schemas.dashboard import (
     AcceptResult,
@@ -19,17 +18,8 @@ from app.schemas.dashboard import (
     ObjectionSubmit,
 )
 from app.services.farmers import get_own_farmer
-from app.services.mediation import (
-    REWRITABLE_ALLOCATION_STATUSES,
-    accept_proposal,
-    allocate,
-    canal_available_water,
-    open_claims,
-    open_conflict,
-    record_objection,
-)
+from app.services.mediation import accept_proposal, mediation_view, record_objection
 from app.db.session import get_db
-from app.models.network import Canal
 
 router = APIRouter(prefix="/mediation", tags=["mediation"])
 
@@ -49,47 +39,7 @@ def read_own_mediation(
 ) -> MediationView:
     """The signed-in farmer's current proposal plus glass-box evidence."""
     farmer = get_own_farmer(db, user)
-    allocation = (
-        db.query(Allocation)
-        .join(WaterRequest, Allocation.request_id == WaterRequest.id)
-        .filter(
-            WaterRequest.farmer_id == farmer.id,
-            Allocation.status.in_(REWRITABLE_ALLOCATION_STATUSES),
-        )
-        .order_by(Allocation.id.desc())
-        .first()
-    )
-    if allocation is None:
-        return MediationView(
-            has_proposal=False,
-            requested=0,
-            allocated=0,
-            reason=None,
-            status=None,
-            conflict_code=None,
-            evidence=[],
-            objection_options=OBJECTION_OPTIONS,
-        )
-    req = db.get(WaterRequest, allocation.request_id)
-    canal = db.get(Canal, farmer.canal_id) if farmer.canal_id else None
-    evidence: list[str] = []
-    conflict_code = None
-    if canal is not None:
-        claims, _ = open_claims(db, canal.id)
-        outcome = allocate(canal_available_water(canal), claims)
-        evidence = outcome.evidence
-        conflict = open_conflict(db, canal.id)
-        conflict_code = conflict.conflict_code if conflict else None
-    return MediationView(
-        has_proposal=True,
-        requested=float(req.quantity_requested) if req else 0,
-        allocated=float(allocation.allocated_quantity),
-        reason=allocation.reason,
-        status=allocation.status.value,
-        conflict_code=conflict_code,
-        evidence=evidence,
-        objection_options=OBJECTION_OPTIONS,
-    )
+    return MediationView(**mediation_view(db, farmer), objection_options=OBJECTION_OPTIONS)
 
 
 @router.post("/objections", response_model=ObjectionResult)

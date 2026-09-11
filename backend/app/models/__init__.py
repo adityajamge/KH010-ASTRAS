@@ -1,6 +1,7 @@
 """Import every model so Base.metadata (and Alembic autogenerate) see them all."""
 
 from app.db.base import Base
+from app.models.assistant import AssistantMessage
 from app.models.conflict import Agreement, Conflict, ConflictParticipant, Objection
 from app.models.farmer import Farmer, Field
 from app.models.monitoring import Anomaly, SensorReading
@@ -28,4 +29,5 @@ __all__ = [
     "Anomaly",
     "Notification",
     "AuditLog",
+    "AssistantMessage",
 ]

@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useAuth } from "@clerk/clerk-react";
 import { WaterDropLogo } from "./AssistantFab";
+import { ApiError, getAssistantHistory, sendAssistantMessage } from "../lib/api";
 
 interface ChatMessage {
   id: number;
@@ -13,13 +15,14 @@ const EMPTY_MESSAGES: Record<string, string> = {
   "Dam Operator": "Ask about reservoir levels, releases, or supply planning.",
 };
 
-const STUB_REPLY =
-  "The assistant isn't connected yet — chat answers will appear here once the language model is configured.";
+const FALLBACK_REPLY =
+  "Sorry, I couldn't reach the assistant just now. Please try again in a moment.";
 
 /**
  * Right-side assistant chat panel. Slides in when the water-drop logo is
- * clicked. No LLM key yet: messages stay local and the assistant replies
- * with a not-connected notice.
+ * clicked. Talks to POST /api/v1/assistant/message — the same AI
+ * Coordinator, allocation engine, and mediation workflow the Twilio channel
+ * uses (backend/app/services/ai_coordinator.py).
  */
 export function AssistantChat({
   open,
@@ -30,9 +33,12 @@ export function AssistantChat({
   onClose: () => void;
   roleLabel: string;
 }) {
+  const { getToken } = useAuth();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [draft, setDraft] = useState("");
   const [nextId, setNextId] = useState(1);
+  const [sending, setSending] = useState(false);
+  const [historyLoaded, setHistoryLoaded] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
@@ -53,17 +59,57 @@ export function AssistantChat({
 
   useEffect(() => {
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight });
-  }, [messages, open]);
+  }, [messages, open, sending]);
 
-  function handleSend(event: FormEvent) {
+  // Load prior website-chat turns once, the first time the panel opens.
+  useEffect(() => {
+    if (!open || historyLoaded) return;
+    setHistoryLoaded(true);
+    (async () => {
+      try {
+        const token = await getToken();
+        if (!token) return;
+        const history = await getAssistantHistory(token);
+        setMessages((prev) => {
+          if (prev.length > 0) return prev;
+          let id = 1;
+          return history.map((item) => ({
+            id: id++,
+            from: item.role === "user" ? "user" : "assistant",
+            text: item.content,
+          }));
+        });
+        setNextId((id) => Math.max(id, history.length + 1));
+      } catch {
+        // History is a convenience — a failed load just leaves the panel empty.
+      }
+    })();
+  }, [open, historyLoaded, getToken]);
+
+  async function handleSend(event: FormEvent) {
     event.preventDefault();
     const text = draft.trim();
-    if (!text) return;
+    if (!text || sending) return;
     const userMsg: ChatMessage = { id: nextId, from: "user", text };
-    const reply: ChatMessage = { id: nextId + 1, from: "assistant", text: STUB_REPLY };
-    setNextId(nextId + 2);
-    setMessages((prev) => [...prev, userMsg, reply]);
+    setNextId((id) => id + 1);
+    setMessages((prev) => [...prev, userMsg]);
     setDraft("");
+    setSending(true);
+    try {
+      const token = await getToken();
+      if (!token) throw new ApiError(401, "Could not verify your session.");
+      const { reply } = await sendAssistantMessage(token, text);
+      setMessages((prev) => [...prev, { id: userMsg.id + 1, from: "assistant", text: reply }]);
+      setNextId((id) => Math.max(id, userMsg.id + 2));
+    } catch {
+      setMessages((prev) => [
+        ...prev,
+        { id: userMsg.id + 1, from: "assistant", text: FALLBACK_REPLY },
+      ]);
+      setNextId((id) => Math.max(id, userMsg.id + 2));
+    } finally {
+      setSending(false);
+    }
   }
 
   return (
@@ -106,6 +152,11 @@ export function AssistantChat({
             </div>
           ))
         )}
+        {sending && (
+          <div className="assistant-msg" aria-live="polite">
+            <p>…</p>
+          </div>
+        )}
       </div>
 
       <form className="assistant-chat-form" onSubmit={handleSend}>
@@ -116,13 +167,14 @@ export function AssistantChat({
           placeholder="Ask about your water…"
           aria-label="Chat message"
           onChange={(e) => setDraft(e.target.value)}
+          disabled={sending}
           tabIndex={open ? 0 : -1}
         />
         <button
           type="submit"
           className="assistant-chat-send"
           aria-label="Send message"
-          disabled={!draft.trim()}
+          disabled={!draft.trim() || sending}
           tabIndex={open ? 0 : -1}
         >
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
