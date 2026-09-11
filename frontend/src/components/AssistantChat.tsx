@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useAuth } from "@clerk/clerk-react";
 import { WaterDropLogo } from "./AssistantFab";
 import { useLanguage } from "../lib/i18n";
-import { ApiError, chatWithAssistant, type AssistantChatMessage } from "../lib/api";
+import { ApiError, streamAssistantChat, type AssistantChatMessage } from "../lib/api";
 
 interface ChatMessage {
   id: number;
@@ -69,18 +69,33 @@ export function AssistantChat({
       content: m.text,
     }));
     const userId = nextId;
+    const assistantId = userId + 1;
     setMessages((prev) => [...prev, { id: userId, from: "user", text }]);
-    setNextId(userId + 2);
+    setNextId(assistantId + 1);
     setDraft("");
     setSending(true);
+    let started = false;
     try {
       const token = await getToken();
       if (!token) throw new Error(t("Could not verify your session."));
-      const { reply } = await chatWithAssistant(token, text, history);
-      setMessages((prev) => [...prev, { id: userId + 1, from: "assistant", text: reply }]);
+      await streamAssistantChat(token, text, history, (chunk) => {
+        setMessages((prev) => {
+          if (!started) {
+            started = true;
+            return [...prev, { id: assistantId, from: "assistant", text: chunk }];
+          }
+          return prev.map((m) =>
+            m.id === assistantId ? { ...m, text: m.text + chunk } : m,
+          );
+        });
+      });
     } catch (err) {
       const errText = err instanceof ApiError ? err.message : t("Something went wrong. Please try again.");
-      setMessages((prev) => [...prev, { id: userId + 1, from: "assistant", text: errText }]);
+      setMessages((prev) =>
+        started
+          ? prev.map((m) => (m.id === assistantId ? { ...m, text: m.text + errText } : m))
+          : [...prev, { id: assistantId, from: "assistant", text: errText }],
+      );
     } finally {
       setSending(false);
     }
@@ -126,7 +141,7 @@ export function AssistantChat({
                 <p>{msg.text}</p>
               </div>
             ))}
-            {sending && (
+            {sending && messages[messages.length - 1]?.from !== "assistant" && (
               <div className="assistant-msg" aria-live="polite">
                 <p>{t("Thinking…")}</p>
               </div>

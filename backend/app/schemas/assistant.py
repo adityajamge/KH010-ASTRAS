@@ -17,7 +17,3 @@ class ChatRequest(BaseModel):
     # server) owns conversation state, so it resends what it wants Claude
     # to see.
     history: list[ChatMessage] = Field(default_factory=list, max_length=40)
-
-
-class ChatResponse(BaseModel):
-    reply: str
