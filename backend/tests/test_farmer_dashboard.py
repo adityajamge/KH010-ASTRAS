@@ -250,6 +250,28 @@ def test_accept_freezes_versioned_agreement(client, seed, db_session):
     assert agreement.participants
 
 
+def test_second_request_same_date_does_not_overlap_accepted_slot(client, seed):
+    """A farmer's already-accepted schedule for a date must not be
+    overwritten in place — a later request for the same date should queue
+    its slot after it, not restart from DAY_START and overlap it."""
+    as_farmer("f1")
+    client.post("/api/v1/requests", json=REQUEST)
+    assert client.post("/api/v1/mediation/accept").status_code == 200
+
+    second = {**REQUEST, "quantity_requested": 167}
+    assert client.post("/api/v1/requests", json=second).status_code == 201
+
+    summary = client.get("/api/v1/dashboard/farmer").json()
+    schedules = sorted(
+        summary["upcoming_schedules"], key=lambda s: s["start_time"]
+    )
+    assert len(schedules) == 2
+    first, second_slot = schedules
+    assert first["end_time"] <= second_slot["start_time"], (
+        f"slots overlap: {first} vs {second_slot}"
+    )
+
+
 def test_farmer_isolation(client, seed):
     as_farmer("f1")
     client.post("/api/v1/requests", json=REQUEST)

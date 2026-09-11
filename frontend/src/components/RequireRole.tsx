@@ -16,7 +16,7 @@ export function RequireRole({ roles, children }: RequireRoleProps) {
   if (!isLoaded) {
     return (
       <main className="page">
-        <section className="hero">
+        <section className="loading-screen">
           <p className="hero-note">Checking session…</p>
         </section>
       </main>

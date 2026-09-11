@@ -39,6 +39,7 @@ def post_message(
         text=payload.text,
         farmer=farmer,
         dam_id=user.dam_id,
+        lang=payload.lang,
     )
     try:
         db.commit()

@@ -12,6 +12,7 @@ import { RequireRole } from "./components/RequireRole";
 import { FarmerOnboardingGate } from "./components/FarmerOnboardingGate";
 import { RouteProgressBar } from "./components/RouteProgressBar";
 import { ROLES } from "./lib/roles";
+import { LanguageProvider } from "./lib/i18n";
 import "./App.css";
 
 const clerkKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
@@ -39,6 +40,7 @@ function App() {
 
   return (
     <ClerkProvider publishableKey={clerkKey}>
+      <LanguageProvider>
       <RouteProgressBar />
       <Routes>
         <Route path="/" element={<Landing />} />
@@ -74,6 +76,7 @@ function App() {
         />
         <Route path="*" element={<NoAccessPage />} />
       </Routes>
+      </LanguageProvider>
     </ClerkProvider>
   );
 }

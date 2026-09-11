@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useAuth } from "@clerk/clerk-react";
 import { WaterDropLogo } from "./AssistantFab";
+import { useLanguage } from "../lib/i18n";
 import { ApiError, getAssistantHistory, sendAssistantMessage } from "../lib/api";
 
 interface ChatMessage {
@@ -9,20 +10,18 @@ interface ChatMessage {
   text: string;
 }
 
-const EMPTY_MESSAGES: Record<string, string> = {
+const EMPTY_MESSAGE_KEY: Record<string, string> = {
   Farmer: "Ask about your allocation, schedule, or why your water changed.",
   "Jal Vigyani": "Ask about canal flows, conflicts, or anomalies on your network.",
   "Dam Operator": "Ask about reservoir levels, releases, or supply planning.",
 };
 
-const FALLBACK_REPLY =
-  "Sorry, I couldn't reach the assistant just now. Please try again in a moment.";
-
 /**
  * Right-side assistant chat panel. Slides in when the water-drop logo is
  * clicked. Talks to POST /api/v1/assistant/message — the same AI
  * Coordinator, allocation engine, and mediation workflow the Twilio channel
- * uses (backend/app/services/ai_coordinator.py).
+ * uses (backend/app/services/ai_coordinator.py), with replies following the
+ * dashboard's selected language.
  */
 export function AssistantChat({
   open,
@@ -33,6 +32,7 @@ export function AssistantChat({
   onClose: () => void;
   roleLabel: string;
 }) {
+  const { t, lang } = useLanguage();
   const { getToken } = useAuth();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [draft, setDraft] = useState("");
@@ -97,15 +97,16 @@ export function AssistantChat({
     setSending(true);
     try {
       const token = await getToken();
-      if (!token) throw new ApiError(401, "Could not verify your session.");
-      const { reply } = await sendAssistantMessage(token, text);
+      if (!token) throw new ApiError(401, t("Could not verify your session."));
+      const { reply } = await sendAssistantMessage(token, text, lang);
       setMessages((prev) => [...prev, { id: userMsg.id + 1, from: "assistant", text: reply }]);
       setNextId((id) => Math.max(id, userMsg.id + 2));
-    } catch {
-      setMessages((prev) => [
-        ...prev,
-        { id: userMsg.id + 1, from: "assistant", text: FALLBACK_REPLY },
-      ]);
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error("assistant chat failed:", err);
+      const errText =
+        err instanceof ApiError ? err.message : t("Something went wrong. Please try again.");
+      setMessages((prev) => [...prev, { id: userMsg.id + 1, from: "assistant", text: errText }]);
       setNextId((id) => Math.max(id, userMsg.id + 2));
     } finally {
       setSending(false);
@@ -115,17 +116,17 @@ export function AssistantChat({
   return (
     <aside
       className={`assistant-chat${open ? " open" : ""}`}
-      aria-label="Assistant chat"
+      aria-label={t("Assistant chat")}
       aria-hidden={!open}
     >
       <div className="assistant-chat-head">
         <div>
-          <p className="eyebrow">JalSetu Assistant</p>
+          <p className="eyebrow">{t("JalSetu Assistant")}</p>
         </div>
         <button
           type="button"
           className="assistant-chat-close"
-          aria-label="Close assistant chat"
+          aria-label={t("Close assistant chat")}
           onClick={onClose}
           tabIndex={open ? 0 : -1}
         >
@@ -137,9 +138,9 @@ export function AssistantChat({
         {messages.length === 0 ? (
           <div className="assistant-chat-empty">
             <WaterDropLogo size={112} />
-            <p className="assistant-chat-empty-title">How can I help?</p>
+            <p className="assistant-chat-empty-title">{t("How can I help?")}</p>
             <p className="assistant-chat-empty-sub">
-              {EMPTY_MESSAGES[roleLabel] ?? "Ask about your water status."}
+              {t(EMPTY_MESSAGE_KEY[roleLabel] ?? "Ask about your water status.")}
             </p>
           </div>
         ) : (
@@ -154,7 +155,7 @@ export function AssistantChat({
         )}
         {sending && (
           <div className="assistant-msg" aria-live="polite">
-            <p>…</p>
+            <p>{t("Thinking…")}</p>
           </div>
         )}
       </div>
@@ -164,8 +165,8 @@ export function AssistantChat({
           ref={inputRef}
           className="assistant-chat-input"
           value={draft}
-          placeholder="Ask about your water…"
-          aria-label="Chat message"
+          placeholder={t("Ask about your water…")}
+          aria-label={t("Chat message")}
           onChange={(e) => setDraft(e.target.value)}
           disabled={sending}
           tabIndex={open ? 0 : -1}
@@ -173,7 +174,7 @@ export function AssistantChat({
         <button
           type="submit"
           className="assistant-chat-send"
-          aria-label="Send message"
+          aria-label={t("Send message")}
           disabled={!draft.trim() || sending}
           tabIndex={open ? 0 : -1}
         >

@@ -49,6 +49,12 @@ MAX_TOOL_ITERATIONS = 4
 #: Prior turns (final replies only, not tool calls) replayed for context.
 HISTORY_TURNS = 12
 
+#: The dashboard's language dropdown (frontend/src/lib/i18n.tsx). When the
+#: caller passes one of these, replies follow it regardless of what language
+#: the farmer typed in; otherwise the prompt falls back to mirroring the
+#: farmer's own language.
+LANGUAGE_NAME = {"en": "English", "hi": "Hindi", "mr": "Marathi"}
+
 FARMER_SYSTEM_PROMPT = """You are the JalSetu AI Coordinator: a neutral digital mediator for irrigation water-sharing disputes between farmers on a shared canal.
 
 You are talking to a farmer over {channel}. Rules:
@@ -56,10 +62,17 @@ You are talking to a farmer over {channel}. Rules:
 - To request water, call submit_water_request. To object, ask for a revision, reject a proposal, or report a shortage/leak/problem, call object_to_allocation with whichever reason fits best. To agree to the current proposal, call accept_proposal.
 - For a reported problem you cannot verify from the water data (e.g. a physical leak), say the Jal Vigyani may need to inspect it in person, in addition to filing the objection.
 - Never claim to control irrigation infrastructure physically, and never claim to replace the Jal Vigyani or guarantee a dispute is resolved — you propose evidence-based allocations; a human can still review them.
-- Keep replies short (3-6 sentences), plain, non-technical. Reply in the same language the farmer wrote in.
+- Keep replies short (3-6 sentences), plain, non-technical. {language_instruction}
 - If a tool reports an error (e.g. no canal assigned, no open proposal), explain that plainly and say what to do next (e.g. finish onboarding on the website)."""
 
-READONLY_SYSTEM_PROMPT = """You are the JalSetu AI Coordinator, talking to a {role_label} over {channel}. Your one tool, get_overview, returns the live status of their assigned dam and canals. Always call it before answering a question about supply, conflicts, or anomalies — never invent numbers. Keep replies short and plain. This chat cannot change allocations or conflict decisions; point the user to the dashboard for those actions."""
+READONLY_SYSTEM_PROMPT = """You are the JalSetu AI Coordinator, talking to a {role_label} over {channel}. Your one tool, get_overview, returns the live status of their assigned dam and canals. Always call it before answering a question about supply, conflicts, or anomalies — never invent numbers. Keep replies short and plain. {language_instruction} This chat cannot change allocations or conflict decisions; point the user to the dashboard for those actions."""
+
+
+def _language_instruction(lang: str | None) -> str:
+    if lang and lang in LANGUAGE_NAME:
+        name = LANGUAGE_NAME[lang]
+        return f"Always reply in {name} — the user has selected {name} as the app's display language, even if they type in a different language."
+    return "Reply in the same language the farmer wrote in."
 
 FARMER_TOOLS: list[dict] = [
     {
@@ -162,21 +175,28 @@ def handle_message(
     text: str,
     farmer: Farmer | None = None,
     dam_id: int | None = None,
+    lang: str | None = None,
 ) -> str:
     """Run one chat turn and return the assistant's reply text.
 
     ``actor_id`` is always a Clerk user id, even over Twilio — the webhook
     resolves the inbound phone number to a farmer profile before calling
     this function, so the conversation log reads identically either way.
+    ``lang`` is the dashboard's language dropdown ("en"/"hi"/"mr"); leave it
+    unset (e.g. over Twilio, which has no such dropdown) to have the model
+    mirror whatever language the message itself is written in.
     """
     text = text.strip()
     if not text:
         return "Please send a message describing what you need."
+    language_instruction = _language_instruction(lang)
 
     if role == "farmer":
         if farmer is None:
             raise ValueError("farmer is required when role='farmer'")
-        system = FARMER_SYSTEM_PROMPT.format(channel=channel.value)
+        system = FARMER_SYSTEM_PROMPT.format(
+            channel=channel.value, language_instruction=language_instruction
+        )
         tools = FARMER_TOOLS
         auth_user = AuthUser(user_id=actor_id, role="farmer")
 
@@ -185,7 +205,9 @@ def handle_message(
 
     elif role in ("jal_vigyani", "dam_operator"):
         role_label = "Jal Vigyani" if role == "jal_vigyani" else "Dam Operator"
-        system = READONLY_SYSTEM_PROMPT.format(role_label=role_label, channel=channel.value)
+        system = READONLY_SYSTEM_PROMPT.format(
+            role_label=role_label, channel=channel.value, language_instruction=language_instruction
+        )
         tools = READONLY_TOOLS
         auth_user = AuthUser(user_id=actor_id, role=role, dam_id=dam_id)
 
