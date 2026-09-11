@@ -9,7 +9,7 @@ publicMetadata.dam_id (see app/core/auth.py).
 """
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from app.core.auth import require_jal_vigyani_dam_id
@@ -20,9 +20,12 @@ from app.models.farmer import Farmer
 from app.models.monitoring import Anomaly
 from app.models.network import Canal, Dam
 from app.models.request import Allocation, Delivery, Schedule, WaterRequest
+from app.models.village import Village
 from app.schemas.jal_vigyani import (
+    CanalAssignmentRequest,
     CanalScheduleRow,
     FarmerAllocationSummary,
+    FarmerCanalRow,
     JalVigyaniOverview,
     UnderDeliveryRow,
 )
@@ -232,3 +235,75 @@ def get_canal_schedule(
         )
         for schedule, farmer in rows
     ]
+
+
+def _farmer_canal_row(farmer: Farmer, village_name: str, canal_name: str | None) -> FarmerCanalRow:
+    return FarmerCanalRow(
+        farmer_id=farmer.id,
+        farmer_name=farmer.name,
+        village=village_name,
+        phone=farmer.phone,
+        canal_id=farmer.canal_id,
+        canal_name=canal_name,
+    )
+
+
+@router.get("/farmers", response_model=list[FarmerCanalRow])
+def list_assignable_farmers(
+    dam_id: int = Depends(require_jal_vigyani_dam_id), db: Session = Depends(get_db)
+) -> list[FarmerCanalRow]:
+    """Farmers this dam's Jal Vigyani can assign a canal to: anyone still
+    unassigned, plus anyone already on one of this dam's canals. Farmers
+    assigned to another dam's canal never appear."""
+    canal_ids = _dam_canal_ids(db, dam_id)
+    visibility = (
+        or_(Farmer.canal_id.is_(None), Farmer.canal_id.in_(canal_ids))
+        if canal_ids
+        else Farmer.canal_id.is_(None)
+    )
+    rows = (
+        db.query(Farmer, Village.name, Canal.name)
+        .join(Village, Farmer.village_id == Village.id)
+        .outerjoin(Canal, Farmer.canal_id == Canal.id)
+        .filter(visibility)
+        .order_by(Farmer.name)
+        .all()
+    )
+    return [
+        _farmer_canal_row(farmer, village_name, canal_name)
+        for farmer, village_name, canal_name in rows
+    ]
+
+
+@router.patch("/farmers/{farmer_id}/canal", response_model=FarmerCanalRow)
+def assign_farmer_canal(
+    farmer_id: int,
+    payload: CanalAssignmentRequest,
+    dam_id: int = Depends(require_jal_vigyani_dam_id),
+    db: Session = Depends(get_db),
+) -> FarmerCanalRow:
+    """Assign (or, with canal_id null, unassign) a farmer's canal."""
+    farmer = db.get(Farmer, farmer_id)
+    if farmer is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Farmer not found")
+
+    canal_ids = _dam_canal_ids(db, dam_id)
+    if not (farmer.canal_id is None or farmer.canal_id in canal_ids):
+        # Not visible to this dam's Jal Vigyani — don't leak that they exist.
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Farmer not found")
+
+    if payload.canal_id is not None:
+        canal = db.get(Canal, payload.canal_id)
+        if canal is None or canal.dam_id != dam_id:
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST,
+                detail="Canal does not belong to your dam",
+            )
+
+    farmer.canal_id = payload.canal_id
+    db.commit()
+    db.refresh(farmer)
+
+    village = db.get(Village, farmer.village_id)
+    canal_name = db.get(Canal, farmer.canal_id).name if farmer.canal_id else None
+    return _farmer_canal_row(farmer, village.name if village else "", canal_name)

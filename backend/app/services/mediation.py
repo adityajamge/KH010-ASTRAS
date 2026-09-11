@@ -38,6 +38,7 @@ from app.models.network import Canal
 from app.models.request import Allocation, Delivery, Schedule, WaterRequest
 from app.models.system import AuditLog, Notification
 from app.services.allocation import (
+    DAY_START,
     Claim,
     EngineOutcome,
     allocate,
@@ -283,7 +284,8 @@ def _regenerate_schedules(
         ).delete(synchronize_session=False)
     db.flush()
     for slot_date, items in sorted(by_date.items()):
-        for slot in plan_slots(slot_date, items):
+        start = _next_free_slot_start(db, canal, slot_date)
+        for slot in plan_slots(slot_date, items, start=start):
             alloc = alloc_by_request[slot.request_id]
             db.add(
                 Schedule(
@@ -299,6 +301,32 @@ def _regenerate_schedules(
             # Each allocation carries its own slot window for quick reads.
             alloc.time_start = slot.start
             alloc.time_end = slot.end
+
+
+def _next_free_slot_start(db: Session, canal: Canal, slot_date: date) -> time:
+    """Where this round's newly (re)planned slots should begin.
+
+    Only the requests being regenerated this round are deleted and re-laid
+    out from DAY_START above — an already-accepted allocation from an
+    earlier round keeps its schedule row untouched. Without this, a new
+    round would restart at DAY_START too and overlap that earlier slot.
+    Queuing after the latest end time already booked on this canal/date
+    keeps every slot on a canal sequential and non-overlapping.
+    """
+    latest_end = (
+        db.query(Schedule.end_time)
+        .join(Farmer, Schedule.farmer_id == Farmer.id)
+        .filter(
+            Farmer.canal_id == canal.id,
+            Schedule.date == slot_date,
+            Schedule.status.in_(
+                (ScheduleStatus.PENDING, ScheduleStatus.SCHEDULED, ScheduleStatus.IN_PROGRESS)
+            ),
+        )
+        .order_by(Schedule.end_time.desc())
+        .first()
+    )
+    return latest_end[0] if latest_end else DAY_START
 
 
 def _sync_conflict(
