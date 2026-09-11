@@ -376,42 +376,16 @@ export interface AssistantChatMessage {
 
 /**
  * POST {API_URL}/api/v1/assistant/chat — stateless; caller resends history.
- * The response body streams plain-text deltas; `onDelta` fires once per
- * chunk as it arrives so the UI can render token-by-token.
+ * `lang` is the UI's selected language — the reply follows it regardless of
+ * what language the message itself is typed in.
  */
-export async function streamAssistantChat(
+export function chatWithAssistant(
   token: string,
   message: string,
   history: AssistantChatMessage[],
-  onDelta: (chunk: string) => void,
-): Promise<void> {
-  const response = await fetch(`${API_BASE_URL}/api/v1/assistant/chat`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify({ message, history }),
-  });
-  if (!response.ok) {
-    const body = await response.json().catch(() => null);
-    const detail =
-      body && typeof body === "object" && "detail" in body
-        ? String((body as { detail: unknown }).detail)
-        : `API request failed: ${response.status}`;
-    throw new ApiError(response.status, detail);
-  }
-  if (!response.body) {
-    throw new ApiError(response.status, "Streaming is not supported in this browser.");
-  }
-
-  const reader = response.body.getReader();
-  const decoder = new TextDecoder();
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    if (value.length) onDelta(decoder.decode(value, { stream: true }));
-  }
+  lang: string,
+): Promise<{ reply: string }> {
+  return apiPost<{ reply: string }>("/api/v1/assistant/chat", token, { message, history, lang });
 }
 
 // ---------- Dam dashboard (live backend, no mock data) ----------

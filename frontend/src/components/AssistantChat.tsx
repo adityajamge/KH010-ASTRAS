@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useAuth } from "@clerk/clerk-react";
 import { WaterDropLogo } from "./AssistantFab";
 import { useLanguage } from "../lib/i18n";
-import { ApiError, streamAssistantChat, type AssistantChatMessage } from "../lib/api";
+import { ApiError, chatWithAssistant, type AssistantChatMessage } from "../lib/api";
 
 interface ChatMessage {
   id: number;
@@ -31,7 +31,7 @@ export function AssistantChat({
   onClose: () => void;
   roleLabel: string;
 }) {
-  const { t } = useLanguage();
+  const { t, lang } = useLanguage();
   const { getToken } = useAuth();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [draft, setDraft] = useState("");
@@ -69,33 +69,20 @@ export function AssistantChat({
       content: m.text,
     }));
     const userId = nextId;
-    const assistantId = userId + 1;
     setMessages((prev) => [...prev, { id: userId, from: "user", text }]);
-    setNextId(assistantId + 1);
+    setNextId(userId + 2);
     setDraft("");
     setSending(true);
-    let started = false;
     try {
       const token = await getToken();
       if (!token) throw new Error(t("Could not verify your session."));
-      await streamAssistantChat(token, text, history, (chunk) => {
-        setMessages((prev) => {
-          if (!started) {
-            started = true;
-            return [...prev, { id: assistantId, from: "assistant", text: chunk }];
-          }
-          return prev.map((m) =>
-            m.id === assistantId ? { ...m, text: m.text + chunk } : m,
-          );
-        });
-      });
+      const { reply } = await chatWithAssistant(token, text, history, lang);
+      setMessages((prev) => [...prev, { id: userId + 1, from: "assistant", text: reply }]);
     } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error("assistant chat failed:", err);
       const errText = err instanceof ApiError ? err.message : t("Something went wrong. Please try again.");
-      setMessages((prev) =>
-        started
-          ? prev.map((m) => (m.id === assistantId ? { ...m, text: m.text + errText } : m))
-          : [...prev, { id: assistantId, from: "assistant", text: errText }],
-      );
+      setMessages((prev) => [...prev, { id: userId + 1, from: "assistant", text: errText }]);
     } finally {
       setSending(false);
     }
@@ -141,7 +128,7 @@ export function AssistantChat({
                 <p>{msg.text}</p>
               </div>
             ))}
-            {sending && messages[messages.length - 1]?.from !== "assistant" && (
+            {sending && (
               <div className="assistant-msg" aria-live="polite">
                 <p>{t("Thinking…")}</p>
               </div>

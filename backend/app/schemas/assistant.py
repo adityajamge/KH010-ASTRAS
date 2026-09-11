@@ -17,3 +17,10 @@ class ChatRequest(BaseModel):
     # server) owns conversation state, so it resends what it wants Claude
     # to see.
     history: list[ChatMessage] = Field(default_factory=list, max_length=40)
+    # The UI's selected language (the dashboard language dropdown) — replies
+    # follow this, not whatever language the user happens to type in.
+    lang: Literal["en", "hi", "mr"] = "en"
+
+
+class ChatResponse(BaseModel):
+    reply: str
