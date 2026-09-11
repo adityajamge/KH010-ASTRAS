@@ -79,6 +79,7 @@ class ObjectionDetail(BaseModel):
     reason: ObjectionReason
     details: str | None
     status: ObjectionStatus
+    mediator_message: str | None = None
 
 
 class ConflictDetail(BaseModel):

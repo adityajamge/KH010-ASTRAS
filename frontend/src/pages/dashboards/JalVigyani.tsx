@@ -579,6 +579,11 @@ function ConflictDetailPanel({ detail }: { detail: ConflictDetail }) {
               <Pill tone={o.status === "resolved" ? "success" : "neutral"}>
                 {t(formatStatus(o.status))}
               </Pill>
+              {o.mediator_message && (
+                <p className="negotiation-reason mediator-message" style={{ marginTop: 6 }}>
+                  {o.mediator_message}
+                </p>
+              )}
             </li>
           ))}
         </ul>

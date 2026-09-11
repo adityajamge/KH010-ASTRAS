@@ -4,12 +4,11 @@ memory: the client resends the turns it wants Claude to see on every
 request. (A memory framework, e.g. mem0 or Supermemory, is an intentional
 later addition, not built here.)
 
-Farmers get real tools bound to their own data — see
-app/services/farmer_agent_tools.py — so the agent can read the farmer's
-live dashboard/mediation state and take real actions (submit a request,
-object, accept) instead of just talking about the app. Jal Vigyani and dam
-operator agents are not built yet; those roles get a plain, tool-less chat
-for now, same as before.
+Farmers and Jal Vigyani get real tools bound to their own data — see
+app/services/farmer_agent_tools.py and app/services/jal_vigyani_agent_tools.py
+— so the agent can read live dashboard/conflict state and take real actions
+instead of just talking about the app. The dam operator agent is not built
+yet; that role gets a plain, tool-less chat for now, same as before.
 """
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -24,6 +23,7 @@ from app.core.config import settings
 from app.db.session import get_db
 from app.schemas.assistant import ChatRequest, ChatResponse
 from app.services.farmer_agent_tools import build_farmer_tools
+from app.services.jal_vigyani_agent_tools import build_jal_vigyani_tools
 
 router = APIRouter(prefix="/assistant", tags=["assistant"])
 
@@ -69,6 +69,27 @@ _FARMER_SYSTEM_PROMPT = (
     "even if they type their message in a different language."
 )
 
+_JAL_VIGYANI_SYSTEM_PROMPT = (
+    "You are the JalSetu assistant for a Jal Vigyani (canal authority / "
+    "water scientist). You have tools to read this account's real, live "
+    "dam-wide data — canals, farmer allocations, under-delivery cases, "
+    "schedules, and conflicts — and to take real actions: assign a farmer "
+    "to a canal, and record a decision (approve / request revision / "
+    "escalate) on a conflict. Call the relevant get_/list_ tool whenever "
+    "asked about the dam, a canal, a farmer, a delivery, or a conflict — "
+    "never guess a number, always look it up first. Look up "
+    "list_assignable_farmers_tool or list_conflicts_tool first if you need "
+    "a farmer_id, canal_id, or conflict_id you don't already have. Before "
+    "calling assign_farmer_canal or decide_conflict, make sure every "
+    "required detail is known and the Jal Vigyani has clearly asked for "
+    "that action — ask a clarifying question instead of guessing which "
+    "farmer, canal, conflict, or decision they mean. After a tool call, "
+    "explain the result in plain language, never as raw JSON. Be concise. "
+    "Always reply in {language} — the user has selected {language} as the "
+    "app's display language, so answer in {language} even if they type "
+    "their message in a different language."
+)
+
 
 def _extract_text(message: BaseMessage) -> str:
     """ChatAnthropic returns `content` as a plain string, or — when the
@@ -111,6 +132,9 @@ async def chat(
     if user.role == ROLE_FARMER:
         tools = build_farmer_tools(db, user, payload.lang)
         system_prompt = _FARMER_SYSTEM_PROMPT.format(language=language)
+    elif user.role == ROLE_JAL_VIGYANI:
+        tools = build_jal_vigyani_tools(db, user, payload.lang)
+        system_prompt = _JAL_VIGYANI_SYSTEM_PROMPT.format(language=language)
     else:
         tools = []
         system_prompt = _GENERIC_SYSTEM_PROMPT.format(

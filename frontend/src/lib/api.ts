@@ -718,6 +718,7 @@ export interface ObjectionDetail {
   reason: string;
   details: string | null;
   status: string;
+  mediator_message: string | null;
 }
 
 export interface ConflictDetail {

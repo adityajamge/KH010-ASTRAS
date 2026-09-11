@@ -111,6 +111,7 @@ def get_conflict(
                 reason=o.reason,
                 details=o.details,
                 status=o.status,
+                mediator_message=o.mediator_message,
             )
             for o, farmer in objections
         ],
