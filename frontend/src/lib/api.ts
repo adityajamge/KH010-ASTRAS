@@ -260,6 +260,7 @@ export interface WaterAdvisory {
 
 export interface FarmerDashboardSummary {
   farmer_name: string;
+  village_name: string;
   canal_name: string | null;
   available_water: number;
   allocated_water: number;

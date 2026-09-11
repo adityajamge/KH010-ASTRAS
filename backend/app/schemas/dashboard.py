@@ -40,6 +40,7 @@ class FarmerDashboardSummary(ORMBase):
     """Everything the farmer dashboard home + sections need in one call."""
 
     farmer_name: str
+    village_name: str
     canal_name: str | None
     # Stat cards. Available = canal current_flow; remaining = allocated - delivered.
     available_water: float

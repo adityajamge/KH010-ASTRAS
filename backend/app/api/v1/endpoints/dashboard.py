@@ -25,6 +25,7 @@ from app.models.monitoring import Anomaly
 from app.models.network import Canal, Dam
 from app.models.request import Allocation, Delivery, Schedule, WaterRequest
 from app.models.system import Notification
+from app.models.village import Village
 from app.schemas.dashboard import (
     ActivityItem,
     CanalReleaseRow,
@@ -89,6 +90,7 @@ def farmer_summary(
 ) -> FarmerDashboardSummary:
     farmer = get_own_farmer(db, user)
     canal = db.get(Canal, farmer.canal_id) if farmer.canal_id else None
+    village = db.get(Village, farmer.village_id)
 
     allocations = (
         db.query(Allocation)
@@ -162,6 +164,7 @@ def farmer_summary(
 
     return FarmerDashboardSummary(
         farmer_name=farmer.name,
+        village_name=village.name if village else "",
         canal_name=canal.name if canal else None,
         available_water=available,
         allocated_water=allocated,

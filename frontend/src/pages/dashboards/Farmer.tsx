@@ -1009,7 +1009,7 @@ function useSidebarFooter(summary: FarmerDashboardSummary | null): {
   const slot = t(nextSlot ? slotLabel(Number(nextSlot.start_time.slice(0, 2))) : "No slot scheduled");
   return {
     title: canalName ?? t("No canal assigned"),
-    subtitle: `${t("Rampur")} · ${slot}`,
+    subtitle: `${summary?.village_name ?? ""} · ${slot}`,
     canalName,
   };
 }

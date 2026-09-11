@@ -67,7 +67,6 @@ const hi: Record<string, string> = {
 
   // Sidebar footer
   "Canal A": "नहर A",
-  Rampur: "रामपुर",
   "Rampur · Morning slot": "रामपुर · सुबह का स्लॉट",
   "No canal assigned": "कोई नहर आवंटित नहीं",
   "No slot scheduled": "कोई स्लॉट निर्धारित नहीं",
@@ -477,7 +476,6 @@ const mr: Record<string, string> = {
 
   // Sidebar footer
   "Canal A": "कालवा A",
-  Rampur: "रामपूर",
   "Rampur · Morning slot": "रामपूर · सकाळचा स्लॉट",
   "No canal assigned": "कालवा नियुक्त केलेला नाही",
   "No slot scheduled": "कोणताही स्लॉट नियोजित नाही",
