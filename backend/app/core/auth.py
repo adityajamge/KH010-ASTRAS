@@ -108,3 +108,13 @@ require_any_role = require_roles(*ALL_ROLES)
 require_farmer = require_roles(ROLE_FARMER)
 require_jal_vigyani = require_roles(ROLE_JAL_VIGYANI)
 require_dam_operator = require_roles(ROLE_DAM_OPERATOR)
+
+
+def require_jal_vigyani_dam_id(user: AuthUser = Depends(require_jal_vigyani)) -> int:
+    """Jal Vigyani dashboard endpoints are scoped to the account's assigned dam."""
+    if user.dam_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Account is not assigned to a dam (missing publicMetadata.dam_id)",
+        )
+    return user.dam_id

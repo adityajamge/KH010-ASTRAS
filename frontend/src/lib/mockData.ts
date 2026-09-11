@@ -92,77 +92,9 @@ export const farmerNotifications = [
   { title: "Schedule confirmed for 12 Sep, 06:00–08:00", time: "08:41", kind: "info" as const },
 ];
 
-// ---------- Jal Vigyani / Canal Authority (section 4) ----------
-
-export const canalOverviewStats: StatCardData[] = [
-  { label: "Current Canal Flow", value: "1000 units" },
-  { label: "Water Level", value: "2.4 m" },
-  { label: "Canal Capacity", value: "1200 units" },
-  { label: "Capacity Utilization", value: "83%" },
-  { label: "Number of Farmers", value: "48" },
-  { label: "Active Conflicts", value: "3", tone: "warn" },
-  { label: "Active Alerts", value: "5", tone: "warn" },
-  { label: "Under-delivery Cases", value: "2", tone: "warn" },
-  { label: "Water-loss Alerts", value: "1", tone: "danger" },
-];
-
-export const canalLiveMonitoring = {
-  upstreamFlow: 1000,
-  downstreamFlow: 720,
-  authorizedOutflow: 700,
-  unaccountedDifference: 20,
-};
-
-export const farmerAllocationTable = [
-  { farmer: "A", requested: 400, allocated: 350, delivered: 350, shortfall: 0, status: "Complete" },
-  { farmer: "B", requested: 400, allocated: 350, delivered: 280, shortfall: 70, status: "Under-delivery" },
-  { farmer: "C", requested: 400, allocated: 300, delivered: 300, shortfall: 0, status: "Complete" },
-];
-
-export const conflicts = [
-  {
-    conflictId: "CNF-1042",
-    farmers: "A, B, C",
-    availableWater: 1000,
-    totalDemand: 1200,
-    shortage: 200,
-    priority: "High",
-    proposal: "A → 350, B → 350, C → 300",
-    objections: "Farmer A: needs at least 400 units",
-    status: "Negotiation",
-  },
-];
-
-export const waterAnomaly = {
-  id: "ANM-024",
-  location: "Canal C1 / G2",
-  expectedFlow: 700,
-  measuredFlow: 680,
-  difference: 20,
-  status: "Investigation Required",
-  possibleCauses: [
-    "Leakage",
-    "Seepage",
-    "Unauthorized withdrawal",
-    "Gate mismatch",
-    "Sensor error",
-  ],
-};
-
-export const underDelivery = {
-  farmer: "Farmer B (F002)",
-  authorized: 400,
-  actual: 280,
-  shortfall: 120,
-  possibleCauses: ["Upstream shortage", "Gate problem", "Leakage", "Unauthorized withdrawal", "Sensor error"],
-  status: "Investigation Required",
-};
-
-export const canalSchedule = [
-  { slot: "06:00–08:00", farmer: "A", quantity: 350 },
-  { slot: "08:00–10:00", farmer: "B", quantity: 300 },
-  { slot: "10:00–12:00", farmer: "C", quantity: 350 },
-];
+// Jal Vigyani dashboard is wired to the real backend
+// (see frontend/src/pages/dashboards/JalVigyani.tsx + lib/api.ts) — no mock
+// data needed here.
 
 // ---------- Dam Operator (section 5) ----------
 

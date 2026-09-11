@@ -41,3 +41,7 @@ class AnomalyRead(TimestampedRead):
     difference: float
     status: AnomalyStatus
     possible_causes: list[str]
+
+
+class AnomalyStatusUpdate(BaseModel):
+    status: AnomalyStatus
