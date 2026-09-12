@@ -18,8 +18,7 @@ const TABS: NativeTab[] = [
 const MORE_ITEMS = [
   { label: "Allocation", to: "/app/farmer/allocation" },
   { label: "Delivery", to: "/app/farmer/delivery" },
-  // Digital Twin (3D/WebGL) is deliberately left out of the native app nav
-  // — too heavy/unreliable in a mobile WebView. Website keeps it.
+  { label: "Digital Twin", to: "/app/farmer/twin" },
   { label: "Alerts", to: "/app/farmer/alerts" },
   { label: "History", to: "/app/farmer/history" },
   { label: "Help", to: "/app/farmer/help" },

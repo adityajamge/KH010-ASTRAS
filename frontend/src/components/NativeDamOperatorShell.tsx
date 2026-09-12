@@ -9,10 +9,6 @@ import {
   type NativeTab,
 } from "./NativeAppShell";
 
-// Digital Twin (3D/WebGL) is deliberately left out of the native app nav —
-// too heavy/unreliable in a mobile WebView. Website keeps it. That leaves
-// exactly 5 sections, so every one fits directly in the tab bar — no
-// "More" sheet needed here (moreItems omitted).
 const TABS: NativeTab[] = [
   { key: "home", label: "Dashboard", to: "/app/dam", end: true, icon: HomeIcon },
   { key: "reservoir", label: "Reservoir", to: "/app/dam/reservoir", icon: TankIcon },
@@ -20,6 +16,8 @@ const TABS: NativeTab[] = [
   { key: "releases", label: "Releases", to: "/app/dam/releases", icon: ShareIcon },
   { key: "help", label: "Help", to: "/app/dam/help", icon: HelpCircleIcon },
 ];
+
+const MORE_ITEMS = [{ label: "Digital Twin", to: "/app/dam/twin" }];
 
 export function NativeDamOperatorShell({
   title,
@@ -31,7 +29,13 @@ export function NativeDamOperatorShell({
   children: ReactNode;
 }) {
   return (
-    <NativeAppShell roleLabel="Dam Operator" title={title} subtitle={subtitle} tabs={TABS}>
+    <NativeAppShell
+      roleLabel="Dam Operator"
+      title={title}
+      subtitle={subtitle}
+      tabs={TABS}
+      moreItems={MORE_ITEMS}
+    >
       {children}
     </NativeAppShell>
   );

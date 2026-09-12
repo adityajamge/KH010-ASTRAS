@@ -11,7 +11,6 @@ import {
 // Dashboard, Conflicts, Farmers, Monitoring are the four most actionable
 // screens (mediation decisions + canal assignment + ground evidence) — the
 // rest goes in the More sheet, same reasoning as the farmer shell.
-// Digital Twin (3D/WebGL) is excluded from the native nav entirely.
 const TABS: NativeTab[] = [
   { key: "home", label: "Dashboard", to: "/app/jal-vigyani", end: true, icon: HomeIcon },
   { key: "conflicts", label: "Conflicts", to: "/app/jal-vigyani/conflicts", icon: AlertTriangleIcon },
@@ -23,6 +22,7 @@ const MORE_ITEMS = [
   { label: "Allocations", to: "/app/jal-vigyani/allocations" },
   { label: "Anomalies", to: "/app/jal-vigyani/anomalies" },
   { label: "Schedule", to: "/app/jal-vigyani/schedule" },
+  { label: "Digital Twin", to: "/app/jal-vigyani/twin" },
   { label: "Help", to: "/app/jal-vigyani/help" },
 ];
 
