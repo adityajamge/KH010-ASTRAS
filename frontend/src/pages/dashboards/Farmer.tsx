@@ -18,6 +18,7 @@ import {
   ApiError,
   OBJECTION_REASON_BY_LABEL,
   acceptProposal,
+  cancelWaterRequest,
   getFarmerDashboard,
   getMediation,
   submitObjection,
@@ -161,6 +162,7 @@ function MediationPanel({
   const [result, setResult] = useState<ObjectionResult | null>(null);
   const [acceptance, setAcceptance] = useState<AcceptResult | null>(null);
   const [objectionDetails, setObjectionDetails] = useState("");
+  const [cancelled, setCancelled] = useState(false);
 
   if (!mediation.has_proposal) {
     return (
@@ -199,6 +201,37 @@ function MediationPanel({
     } finally {
       setBusy(false);
     }
+  }
+
+  async function handleCancel() {
+    setBusy(true);
+    setActionError(null);
+    try {
+      const token = await getToken();
+      if (!token) throw new Error(t("Could not verify your session. Please sign in again."));
+      await cancelWaterRequest(token);
+      setCancelled(true);
+      onChanged();
+    } catch (err) {
+      setActionError(
+        err instanceof ApiError ? err.message : t("Something went wrong. Please try again."),
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (cancelled) {
+    return (
+      <div>
+        <p className="negotiation-reason">{t("Your request has been withdrawn.")}</p>
+        <div className="home-card-actions">
+          <Link className="btn btn-primary btn-xs" to="/app/farmer/request">
+            {t("Request Water")}
+          </Link>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -257,6 +290,14 @@ function MediationPanel({
             onClick={() => setObjecting(true)}
           >
             {t("Object")}
+          </button>
+          <button
+            type="button"
+            className="btn btn-secondary btn-xs"
+            disabled={busy}
+            onClick={handleCancel}
+          >
+            {t("Cancel Request")}
           </button>
         </div>
       ) : (

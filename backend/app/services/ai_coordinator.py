@@ -167,6 +167,16 @@ FARMER_TOOLS: list[dict] = [
         ),
         "parameters": {"type": "object", "properties": {}, "additionalProperties": False},
     },
+    {
+        "name": "cancel_water_request",
+        "description": (
+            "Withdraw the farmer's current open request (one that hasn't been "
+            "accepted yet), freeing its claim on the canal. Use only when the "
+            "farmer clearly says they no longer need the water or want to "
+            "start over with a new request."
+        ),
+        "parameters": {"type": "object", "properties": {}, "additionalProperties": False},
+    },
 ]
 
 JAL_VIGYANI_TOOLS: list[dict] = [
@@ -513,6 +523,15 @@ def _execute_farmer_tool(
                         "final_allocation": agreement.final_allocation,
                         "reason": agreement.reason,
                     }
+                ),
+                False,
+            )
+
+        if name == "cancel_water_request":
+            cancelled = requests_service.cancel_water_request(db, farmer, actor_id=user.user_id)
+            return (
+                json.dumps(
+                    {"request_id": cancelled.id, "status": cancelled.status.value}
                 ),
                 False,
             )

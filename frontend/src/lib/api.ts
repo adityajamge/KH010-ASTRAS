@@ -348,6 +348,11 @@ export function submitWaterRequest(
   return apiPost<WaterRequestRead>("/api/v1/requests", token, payload);
 }
 
+/** POST {API_URL}/api/v1/requests/cancel — withdraw the current open request. */
+export function cancelWaterRequest(token: string): Promise<WaterRequestRead> {
+  return apiPost<WaterRequestRead>("/api/v1/requests/cancel", token, {});
+}
+
 /** GET {API_URL}/api/v1/mediation/me — current proposal + evidence. */
 export function getMediation(token: string): Promise<MediationView> {
   return apiFetch<MediationView>("/api/v1/mediation/me", token);

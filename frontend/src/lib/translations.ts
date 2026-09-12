@@ -168,6 +168,8 @@ const hi: Record<string, string> = {
   Accept: "स्वीकार करें",
   "Accepting…": "स्वीकार हो रहा है…",
   Object: "आपत्ति करें",
+  "Cancel Request": "अनुरोध रद्द करें",
+  "Your request has been withdrawn.": "आपका अनुरोध वापस ले लिया गया है।",
   "Proposal unchanged — supply and priority constraints leave no room.":
     "प्रस्ताव अपरिवर्तित — आपूर्ति और प्राथमिकता की सीमाओं के कारण कोई गुंजाइश नहीं।",
   "Something went wrong. Please try again.": "कुछ गलत हो गया। कृपया फिर से कोशिश करें।",
@@ -581,6 +583,8 @@ const mr: Record<string, string> = {
   Accept: "स्वीकार करा",
   "Accepting…": "स्वीकारले जात आहे…",
   Object: "आक्षेप घ्या",
+  "Cancel Request": "विनंती रद्द करा",
+  "Your request has been withdrawn.": "तुमची विनंती मागे घेतली आहे.",
   "Proposal unchanged — supply and priority constraints leave no room.":
     "प्रस्ताव अपरिवर्तित — पुरवठा आणि प्राधान्यक्रमाच्या मर्यादांमुळे वाव नाही.",
   "Something went wrong. Please try again.": "काहीतरी चुकले. कृपया पुन्हा प्रयत्न करा.",

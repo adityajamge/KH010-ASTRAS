@@ -184,7 +184,16 @@ def _proposal_text(db: Session, allocations: dict[int, float], requests: dict[in
 def run_allocation_cycle(
     db: Session, canal: Canal, actor_id: str | None = None
 ) -> EngineOutcome:
-    """Recompute allocations for every open request on a canal and persist."""
+    """Recompute allocations for every open request on a canal and persist.
+
+    Loopholes doc §10.6 ("multiple simultaneous changes"): two farmers
+    submitting within the same instant must never each compute against a
+    view of the canal that doesn't yet include the other's claim. Locking
+    the canal row (a plain no-op on SQLite, a real blocking lock on
+    Postgres) serializes concurrent cycles for the same canal so the
+    second one always sees the first's already-committed claim.
+    """
+    db.query(Canal).filter(Canal.id == canal.id).with_for_update().one()
     available = canal_available_water(canal)
     claims, requests = open_claims(db, canal.id)
     outcome = allocate(available, claims)
