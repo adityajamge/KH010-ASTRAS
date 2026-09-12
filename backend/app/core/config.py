@@ -27,7 +27,14 @@ class Settings(BaseSettings):
     # NoDecode: these are plain comma-separated strings, not JSON arrays —
     # pydantic-settings otherwise tries to JSON-decode any list[str] field
     # read from .env before the field_validator below ever runs.
-    BACKEND_CORS_ORIGINS: Annotated[list[str], NoDecode] = ["http://localhost:5173"]
+    # https://localhost and capacitor://localhost are the Capacitor Android/
+    # iOS WebView origins (frontend/capacitor.config.ts) — the native app
+    # shares this same backend.
+    BACKEND_CORS_ORIGINS: Annotated[list[str], NoDecode] = [
+        "http://localhost:5173",
+        "https://localhost",
+        "capacitor://localhost",
+    ]
 
     # Neon Postgres (https://console.neon.tech). Use the direct (non-pooled)
     # connection string — this app is a long-lived server, not a
@@ -39,7 +46,11 @@ class Settings(BaseSettings):
     # Empty secret = auth endpoints return 503 until configured.
     CLERK_SECRET_KEY: str = ""
     # Authorized parties (frontend origins) accepted in session tokens.
-    CLERK_AUTHORIZED_PARTIES: Annotated[list[str], NoDecode] = ["http://localhost:5173"]
+    CLERK_AUTHORIZED_PARTIES: Annotated[list[str], NoDecode] = [
+        "http://localhost:5173",
+        "https://localhost",
+        "capacitor://localhost",
+    ]
 
     # AI Coordinator (docs/PS14_Water_Sharing_Mediation_Agent.md §§12.1, 26, 29).
     # Provider-agnostic: the same tool-calling agent loop runs against either
