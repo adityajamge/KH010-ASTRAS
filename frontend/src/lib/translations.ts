@@ -18,6 +18,11 @@ const hi: Record<string, string> = {
   Language: "भाषा",
   "Try again": "फिर से कोशिश करें",
   units: "इकाई",
+  "Water-Sharing Dispute Mediation": "जल-बंटवारा विवाद मध्यस्थता",
+  "The complete platform to request water, negotiate fairly, and track your allocation on the canal.":
+    "पानी का अनुरोध करने, निष्पक्ष रूप से बातचीत करने, और अपने आवंटन को ट्रैक करने का संपूर्ण प्लेटफ़ॉर्म।",
+  "Get Started": "शुरू करें",
+  "I already have an account": "मेरा पहले से खाता है",
   "Loading…": "लोड हो रहा है…",
   Canal: "नहर",
   Farmer: "किसान",
@@ -433,6 +438,11 @@ const mr: Record<string, string> = {
   Language: "भाषा",
   "Try again": "पुन्हा प्रयत्न करा",
   units: "एकके",
+  "Water-Sharing Dispute Mediation": "जल-वाटप विवाद मध्यस्थी",
+  "The complete platform to request water, negotiate fairly, and track your allocation on the canal.":
+    "पाण्यासाठी विनंती करण्याचे, निष्पक्षपणे वाटाघाटी करण्याचे आणि तुमचे वाटप ट्रॅक करण्याचे संपूर्ण व्यासपीठ.",
+  "Get Started": "सुरुवात करा",
+  "I already have an account": "माझे आधीच खाते आहे",
   "Loading…": "लोड होत आहे…",
   Canal: "कालवा",
   Farmer: "शेतकरी",

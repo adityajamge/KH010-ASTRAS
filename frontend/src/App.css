@@ -2047,3 +2047,114 @@
     animation: none;
   }
 }
+
+/* ---------- Native app welcome (Capacitor cold start) ---------- */
+.native-welcome {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 48px 28px 36px;
+  text-align: center;
+  background: var(--canvas);
+}
+
+.native-welcome-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+}
+
+.native-welcome-icon {
+  width: 120px;
+  height: 120px;
+  border-radius: 28px;
+  background: #fff;
+  box-shadow:
+    0 12px 30px rgba(20, 40, 60, 0.14),
+    0 2px 8px rgba(20, 40, 60, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.native-welcome-icon img {
+  width: 78%;
+  height: 78%;
+  object-fit: contain;
+}
+
+.native-welcome-title {
+  font-size: 34px;
+  font-weight: 800;
+  color: var(--ink);
+  margin: 4px 0 0;
+  letter-spacing: -0.01em;
+}
+
+.native-welcome-subtitle {
+  font-size: 19px;
+  font-weight: 600;
+  color: var(--ink);
+  max-width: 320px;
+  margin: 0;
+}
+
+.native-welcome-desc {
+  color: var(--ink-muted);
+  font-size: 15px;
+  line-height: 1.5;
+  max-width: 320px;
+  margin: 0;
+}
+
+.native-welcome-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+}
+
+.native-welcome-cta {
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: var(--primary);
+  color: #fff;
+  border: none;
+  border-radius: 16px;
+  padding: 18px 24px;
+  font-size: 17px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 10px 24px rgba(37, 99, 235, 0.28);
+}
+
+.native-welcome-cta:hover {
+  background: var(--primary-hover);
+}
+
+.native-welcome-cta span {
+  font-size: 18px;
+}
+
+.native-welcome-link {
+  background: none;
+  border: none;
+  color: var(--ink-muted);
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 4px;
+}
+
+.native-welcome-link:hover {
+  color: var(--ink);
+}

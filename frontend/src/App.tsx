@@ -1,6 +1,8 @@
+import { Capacitor } from "@capacitor/core";
 import { ClerkProvider } from "@clerk/clerk-react";
 import { Route, Routes } from "react-router-dom";
 import Landing from "./pages/Landing";
+import { NativeWelcome } from "./pages/NativeWelcome";
 import { SignInPage } from "./pages/SignInPage";
 import { SignUpPage } from "./pages/SignUpPage";
 import { NoAccessPage } from "./pages/NoAccess";
@@ -43,7 +45,10 @@ function App() {
       <LanguageProvider>
       <RouteProgressBar />
       <Routes>
-        <Route path="/" element={<Landing />} />
+        <Route
+          path="/"
+          element={Capacitor.isNativePlatform() ? <NativeWelcome /> : <Landing />}
+        />
         <Route path="/sign-in/*" element={<SignInPage />} />
         <Route path="/sign-up/*" element={<SignUpPage />} />
         <Route path="/no-access" element={<NoAccessPage />} />
