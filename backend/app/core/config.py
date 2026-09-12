@@ -41,9 +41,29 @@ class Settings(BaseSettings):
     # Authorized parties (frontend origins) accepted in session tokens.
     CLERK_AUTHORIZED_PARTIES: Annotated[list[str], NoDecode] = ["http://localhost:5173"]
 
-    # Anthropic API (https://console.anthropic.com). Empty = assistant chat
-    # endpoint returns 503 until configured.
+    # AI Coordinator (docs/PS14_Water_Sharing_Mediation_Agent.md §§12.1, 26, 29).
+    # Provider-agnostic: the same tool-calling agent loop runs against either
+    # backend (app/services/llm_client.py). Empty key for the selected
+    # provider = the assistant replies with a "not configured" notice instead
+    # of erroring, on both the website chat and the Twilio channel.
+    LLM_PROVIDER: Literal["anthropic", "openai"] = "anthropic"
     ANTHROPIC_API_KEY: str = ""
+    ANTHROPIC_MODEL: str = "claude-haiku-4-5-20251001"
+    OPENAI_API_KEY: str = ""
+    OPENAI_MODEL: str = "gpt-4o-mini"
+
+    # Twilio (https://console.twilio.com) — WhatsApp/SMS prototype channel for
+    # the same AI Coordinator the website chat uses (no separate business
+    # logic). Empty SID/token = the /twilio/inbound webhook is unavailable.
+    TWILIO_ACCOUNT_SID: str = ""
+    TWILIO_AUTH_TOKEN: str = ""
+    # Sandbox number Twilio assigns, e.g. "whatsapp:+14155238886".
+    TWILIO_WHATSAPP_FROM: str = ""
+    # Plain E.164 number for the SMS fallback channel, e.g. "+14155238886".
+    TWILIO_SMS_FROM: str = ""
+    # Skip request-signature verification in local dev (no public HTTPS URL
+    # for Twilio to sign against). Leave true in any deployed environment.
+    TWILIO_VALIDATE_SIGNATURE: bool = True
 
     @field_validator("BACKEND_CORS_ORIGINS", "CLERK_AUTHORIZED_PARTIES", mode="before")
     @classmethod

@@ -1,26 +1,26 @@
-"""Assistant chat shapes. Stateless — no server-side conversation memory
-(that's a deliberate scope call; a memory framework can be layered on later)."""
-
+from datetime import datetime
 from typing import Literal
 
 from pydantic import BaseModel, Field
 
-
-class ChatMessage(BaseModel):
-    role: Literal["user", "assistant"]
-    content: str = Field(min_length=1, max_length=4000)
+from app.models.enums import ChannelType, MessageRole
+from app.schemas.common import ORMBase
 
 
-class ChatRequest(BaseModel):
-    message: str = Field(min_length=1, max_length=2000)
-    # Prior turns from this session, oldest first — the client (not the
-    # server) owns conversation state, so it resends what it wants Claude
-    # to see.
-    history: list[ChatMessage] = Field(default_factory=list, max_length=40)
-    # The UI's selected language (the dashboard language dropdown) — replies
-    # follow this, not whatever language the user happens to type in.
-    lang: Literal["en", "hi", "mr"] = "en"
+class AssistantMessageIn(BaseModel):
+    text: str = Field(min_length=1, max_length=2000)
+    # The dashboard's language dropdown (frontend/src/lib/i18n.tsx) — when
+    # set, the reply follows this rather than whatever language the farmer
+    # happened to type in.
+    lang: Literal["en", "hi", "mr"] | None = None
 
 
-class ChatResponse(BaseModel):
+class AssistantMessageOut(BaseModel):
     reply: str
+
+
+class AssistantHistoryItem(ORMBase):
+    role: MessageRole
+    content: str
+    channel: ChannelType
+    created_at: datetime

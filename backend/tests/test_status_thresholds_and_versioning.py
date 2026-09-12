@@ -11,8 +11,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from app.api.v1.endpoints.dashboard import _dam_status, _release_status
-from app.core.auth import AuthUser, require_farmer
+from app.core.auth import AuthUser, require_farmer, require_jal_vigyani, require_jal_vigyani_dam_id
 from app.db.base import Base
 from app.db.session import get_db
 from app.main import app
@@ -21,33 +20,33 @@ from app.models.enums import AgreementStatus, PriorityLevel
 from app.models.farmer import Farmer, Field
 from app.models.network import Canal, Dam
 from app.models.village import Village
-from app.services.jal_vigyani_agent_tools import build_jal_vigyani_tools
+from app.services.allocation import dam_status, release_status
 
 TEST_CLERK_ID = "clerk-farmer-1"
 _current = {"key": "f1"}
 
 
-# ---------- _dam_status / _release_status: every branch ----------
+# ---------- dam_status / release_status: every branch ----------
 
 
 def test_dam_status_thresholds():
-    assert _dam_status(1000, 0) == ("Unknown", None)
-    assert _dam_status(1200, 1000) == ("Normal", "ok")  # ratio >= 1
-    assert _dam_status(600, 1000) == ("Watch", "warn")  # 0.5 <= ratio < 1
-    assert _dam_status(400, 1000) == ("Critical", "danger")  # ratio < 0.5
+    assert dam_status(1000, 0) == ("Unknown", None)
+    assert dam_status(1200, 1000) == ("Normal", "ok")  # ratio >= 1
+    assert dam_status(600, 1000) == ("Watch", "warn")  # 0.5 <= ratio < 1
+    assert dam_status(400, 1000) == ("Critical", "danger")  # ratio < 0.5
 
 
 def test_release_status_thresholds():
-    assert _release_status(released=0, difference=0, approved=0, received=0) == "Normal"
-    assert _release_status(released=1000, difference=0, approved=0, received=0) == "Normal"
+    assert release_status(released=0, difference=0, approved=0, received=0) == "Normal"
+    assert release_status(released=1000, difference=0, approved=0, received=0) == "Normal"
     # 8% difference -> Minor Difference band (0.05 <= ratio < 0.15)
     assert (
-        _release_status(released=1000, difference=80, approved=500, received=920)
+        release_status(released=1000, difference=80, approved=500, received=920)
         == "Minor Difference"
     )
     # 20% difference -> Needs Investigation
     assert (
-        _release_status(released=1000, difference=200, approved=500, received=800)
+        release_status(released=1000, difference=200, approved=500, received=800)
         == "Needs Investigation"
     )
 
@@ -158,19 +157,37 @@ def jv_seed(db_session):
     return conflict
 
 
-def test_decide_conflict_request_revision(db_session, jv_seed):
-    user = AuthUser(user_id="clerk-jv-1", role="jal_vigyani", dam_id=2)
-    tools = build_jal_vigyani_tools(db_session, user, "en")
-    tool = next(t for t in tools if t.name == "decide_conflict")
-    out = tool.invoke({"conflict_id": jv_seed.id, "action": "request_revision", "note": "recheck demand"})
-    import json
-    assert json.loads(out)["status"] == "revision_requested"
+@pytest.fixture()
+def jv_client(db_session):
+    def override_db():
+        try:
+            yield db_session
+        finally:
+            pass
+
+    def override_user():
+        return AuthUser(user_id="clerk-jv-1", role="jal_vigyani", dam_id=2)
+
+    app.dependency_overrides[get_db] = override_db
+    app.dependency_overrides[require_jal_vigyani] = override_user
+    app.dependency_overrides[require_jal_vigyani_dam_id] = lambda: 2
+    with TestClient(app, raise_server_exceptions=False) as test_client:
+        yield test_client
+    app.dependency_overrides.clear()
 
 
-def test_decide_conflict_escalate(db_session, jv_seed):
-    user = AuthUser(user_id="clerk-jv-1", role="jal_vigyani", dam_id=2)
-    tools = build_jal_vigyani_tools(db_session, user, "en")
-    tool = next(t for t in tools if t.name == "decide_conflict")
-    out = tool.invoke({"conflict_id": jv_seed.id, "action": "escalate"})
-    import json
-    assert json.loads(out)["status"] == "escalated"
+def test_decide_conflict_request_revision(jv_client, jv_seed):
+    resp = jv_client.post(
+        f"/api/v1/conflicts/{jv_seed.id}/decision",
+        json={"action": "request_revision", "note": "recheck demand"},
+    )
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["status"] == "revision_requested"
+
+
+def test_decide_conflict_escalate(jv_client, jv_seed):
+    resp = jv_client.post(
+        f"/api/v1/conflicts/{jv_seed.id}/decision", json={"action": "escalate"}
+    )
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["status"] == "escalated"

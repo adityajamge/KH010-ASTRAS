@@ -40,6 +40,9 @@ from app.schemas.dashboard import (
 from app.services.allocation import (
     EXPECTED_LOSS_FRACTION,
     UNACCOUNTED_ALERT_FRACTION,
+    dam_status,
+    flow_state,
+    release_status,
 )
 from app.services.farmers import get_own_farmer
 from app.services.mediation import (
@@ -65,8 +68,7 @@ def _advisory(canal: Canal | None, has_allocation: bool, has_conflict: bool) -> 
             has_conflict=False,
             lines=["No canal assigned yet — finish setup to see water status."],
         )
-    ratio = float(canal.current_flow) / float(canal.capacity) if float(canal.capacity) > 0 else 0
-    state = "low" if ratio < 0.5 else ("high" if ratio > 0.95 else "normal")
+    state = flow_state(float(canal.current_flow), float(canal.capacity))
     lines = [
         f"Canal {canal.name} flow {float(canal.current_flow):.0f} "
         f"of {float(canal.capacity):.0f} capacity ({state})",
@@ -188,35 +190,6 @@ _LIVE_REQUEST_STATUSES = (
     RequestStatus.PROPOSED,
     RequestStatus.ACCEPTED,
 )
-
-
-def _release_status(
-    released: float, difference: float, approved: float, received: float
-) -> str:
-    # Nothing expected on this canal (no allocations, no readings): the full
-    # flow is not "missing", there is simply nothing to account for yet.
-    if approved <= 0 and received <= 0:
-        return "Normal"
-    if released <= 0:
-        return "Normal"
-    ratio = difference / released
-    if ratio < 0.05:
-        return "Normal"
-    if ratio < 0.15:
-        return "Minor Difference"
-    return "Needs Investigation"
-
-
-def _dam_status(storage: float, available: float) -> tuple[str, str | None]:
-    """Dam health from stored versus allocatable water. Documented rule."""
-    if available <= 0:
-        return ("Unknown", None)
-    ratio = storage / available
-    if ratio >= 1:
-        return ("Normal", "ok")
-    if ratio >= 0.5:
-        return ("Watch", "warn")
-    return ("Critical", "danger")
 
 
 def _flow_chain(
@@ -345,7 +318,7 @@ def dam_summary(
                 released=released,
                 received=received_total,
                 difference=difference,
-                status=_release_status(released, difference, approved_total, received_total),
+                status=release_status(released, difference, approved_total, received_total),
             )
         )
 
@@ -377,7 +350,7 @@ def dam_summary(
     storage = float(dam.current_storage)
     available = float(dam.total_available)
     release_rate = sum(float(c.current_flow) for c in canals)
-    status_label, status_tone = _dam_status(storage, available)
+    status_label, status_tone = dam_status(storage, available)
 
     stats = [
         StatCard(label="Reservoir Level", value=f"{float(dam.water_level):.1f} m"),

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useAuth } from "@clerk/clerk-react";
 import { WaterDropLogo } from "./AssistantFab";
 import { useLanguage } from "../lib/i18n";
-import { ApiError, chatWithAssistant, type AssistantChatMessage } from "../lib/api";
+import { ApiError, getAssistantHistory, sendAssistantMessage } from "../lib/api";
 
 interface ChatMessage {
   id: number;
@@ -53,9 +53,10 @@ function renderMarkdownLite(text: string) {
 
 /**
  * Right-side assistant chat panel. Slides in when the water-drop logo is
- * clicked. Talks to the backend's LangGraph-orchestrated assistant; chat
- * history lives only in this component's state (no server-side memory —
- * each request resends the visible turns).
+ * clicked. Talks to POST /api/v1/assistant/message — the same AI
+ * Coordinator, allocation engine, and mediation workflow the Twilio channel
+ * uses (backend/app/services/ai_coordinator.py), with replies following the
+ * dashboard's selected language.
  */
 export function AssistantChat({
   open,
@@ -72,6 +73,7 @@ export function AssistantChat({
   const [draft, setDraft] = useState("");
   const [nextId, setNextId] = useState(1);
   const [sending, setSending] = useState(false);
+  const [historyLoaded, setHistoryLoaded] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
@@ -92,7 +94,32 @@ export function AssistantChat({
 
   useEffect(() => {
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight });
-  }, [messages, open]);
+  }, [messages, open, sending]);
+
+  // Load prior website-chat turns once, the first time the panel opens.
+  useEffect(() => {
+    if (!open || historyLoaded) return;
+    setHistoryLoaded(true);
+    (async () => {
+      try {
+        const token = await getToken();
+        if (!token) return;
+        const history = await getAssistantHistory(token);
+        setMessages((prev) => {
+          if (prev.length > 0) return prev;
+          let id = 1;
+          return history.map((item) => ({
+            id: id++,
+            from: item.role === "user" ? "user" : "assistant",
+            text: item.content,
+          }));
+        });
+        setNextId((id) => Math.max(id, history.length + 1));
+      } catch {
+        // History is a convenience — a failed load just leaves the panel empty.
+      }
+    })();
+  }, [open, historyLoaded, getToken]);
 
   // Claude tends to keep matching the conversation's existing language even
   // when told (via the system prompt) to switch — so a language change
@@ -109,26 +136,24 @@ export function AssistantChat({
     event.preventDefault();
     const text = draft.trim();
     if (!text || sending) return;
-
-    const history: AssistantChatMessage[] = messages.map((m) => ({
-      role: m.from,
-      content: m.text,
-    }));
-    const userId = nextId;
-    setMessages((prev) => [...prev, { id: userId, from: "user", text }]);
-    setNextId(userId + 2);
+    const userMsg: ChatMessage = { id: nextId, from: "user", text };
+    setNextId((id) => id + 1);
+    setMessages((prev) => [...prev, userMsg]);
     setDraft("");
     setSending(true);
     try {
       const token = await getToken();
-      if (!token) throw new Error(t("Could not verify your session."));
-      const { reply } = await chatWithAssistant(token, text, history, lang);
-      setMessages((prev) => [...prev, { id: userId + 1, from: "assistant", text: reply }]);
+      if (!token) throw new ApiError(401, t("Could not verify your session."));
+      const { reply } = await sendAssistantMessage(token, text, lang);
+      setMessages((prev) => [...prev, { id: userMsg.id + 1, from: "assistant", text: reply }]);
+      setNextId((id) => Math.max(id, userMsg.id + 2));
     } catch (err) {
       // eslint-disable-next-line no-console
       console.error("assistant chat failed:", err);
-      const errText = err instanceof ApiError ? err.message : t("Something went wrong. Please try again.");
-      setMessages((prev) => [...prev, { id: userId + 1, from: "assistant", text: errText }]);
+      const errText =
+        err instanceof ApiError ? err.message : t("Something went wrong. Please try again.");
+      setMessages((prev) => [...prev, { id: userMsg.id + 1, from: "assistant", text: errText }]);
+      setNextId((id) => Math.max(id, userMsg.id + 2));
     } finally {
       setSending(false);
     }

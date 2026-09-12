@@ -10,6 +10,7 @@ import {
 import { useAuth, useUser } from "@clerk/clerk-react";
 import { DashboardShell, FARMER_NAV } from "../../components/DashboardShell";
 import { Pill, statusTone } from "../../components/dashboard/Pill";
+import { DigitalTwin3D } from "../../components/twin/DigitalTwin3D";
 import { SlotTimeline, groupSchedulesByDate, useNow } from "../../components/dashboard/SlotTimeline";
 import { fmtQty, fmtTime, formatStatus } from "../../lib/format";
 import { useLanguage } from "../../lib/i18n";
@@ -1090,6 +1091,10 @@ const SECTION_META: Record<
     title: (_name, t) => t("Delivery status"),
     subtitle: (_canalName, t) => t("Authorized versus actually delivered water."),
   },
+  "/app/farmer/twin": {
+    title: (_name, t) => t("Digital Twin"),
+    subtitle: (_canalName, t) => t("Dam, canal and farm plots — live from your network state."),
+  },
   "/app/farmer/alerts": {
     title: (_name, t) => t("Alerts"),
     subtitle: (_canalName, t) => t("Water status and system notifications."),
@@ -1127,6 +1132,7 @@ export function FarmerDashboardPage() {
         <Route path="mediation" element={<MediationSection data={data} />} />
         <Route path="schedule" element={<ScheduleSection data={data} />} />
         <Route path="delivery" element={<DeliverySection data={data} />} />
+        <Route path="twin" element={<DigitalTwin3D />} />
         <Route path="alerts" element={<AlertsSection data={data} />} />
         <Route path="history" element={<HistorySection data={data} />} />
         <Route path="help" element={<HelpSection />} />

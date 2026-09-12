@@ -28,6 +28,7 @@ export const FARMER_NAV: NavItem[] = [
   { label: "Mediation", to: "/app/farmer/mediation" },
   { label: "Schedule", to: "/app/farmer/schedule" },
   { label: "Delivery", to: "/app/farmer/delivery" },
+  { label: "Digital Twin", to: "/app/farmer/twin" },
   { label: "Alerts", to: "/app/farmer/alerts" },
   { label: "History", to: "/app/farmer/history" },
   { label: "Help", to: "/app/farmer/help" },
@@ -41,6 +42,7 @@ export const JAL_VIGYANI_NAV: NavItem[] = [
   { label: "Conflicts", to: "/app/jal-vigyani/conflicts" },
   { label: "Anomalies", to: "/app/jal-vigyani/anomalies" },
   { label: "Schedule", to: "/app/jal-vigyani/schedule" },
+  { label: "Digital Twin", to: "/app/jal-vigyani/twin" },
   { label: "Help", to: "/app/jal-vigyani/help" },
 ];
 
@@ -49,6 +51,7 @@ export const DAM_NAV: NavItem[] = [
   { label: "Reservoir", to: "/app/dam/reservoir" },
   { label: "Rainfall", to: "/app/dam/rainfall" },
   { label: "Releases", to: "/app/dam/releases" },
+  { label: "Digital Twin", to: "/app/dam/twin" },
   { label: "Help", to: "/app/dam/help" },
 ];
 

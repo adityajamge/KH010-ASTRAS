@@ -216,3 +216,50 @@ def build_reason(
     ]
     lines.extend(outcome.evidence)
     return " ".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# Deterministic status classifiers — shared by the dam/farmer dashboards
+# (app/api/v1/endpoints/dashboard.py) and the 3D digital twin
+# (app/services/network_state.py) so both read the exact same thresholds.
+# No sensor exists for a physical gate; ``flow_state`` is a derived indicator
+# from current_flow vs. capacity, not a hardware reading.
+# ---------------------------------------------------------------------------
+
+
+def flow_state(current_flow: float, capacity: float) -> str:
+    """"low" / "normal" / "high" from current flow as a fraction of capacity."""
+    ratio = float(current_flow) / float(capacity) if float(capacity) > 0 else 0.0
+    if ratio < 0.5:
+        return "low"
+    if ratio > 0.95:
+        return "high"
+    return "normal"
+
+
+def release_status(released: float, difference: float, approved: float, received: float) -> str:
+    """"Normal" / "Minor Difference" / "Needs Investigation" for a canal's
+    released-vs-received water accounting (dam dashboard §4 reservoir panel)."""
+    if approved <= 0 and received <= 0:
+        # Nothing expected on this canal yet — not "missing", just unused.
+        return "Normal"
+    if released <= 0:
+        return "Normal"
+    ratio = difference / released
+    if ratio < 0.05:
+        return "Normal"
+    if ratio < 0.15:
+        return "Minor Difference"
+    return "Needs Investigation"
+
+
+def dam_status(storage: float, available: float) -> tuple[str, str | None]:
+    """Dam health label + UI tone from stored versus allocatable water."""
+    if available <= 0:
+        return ("Unknown", None)
+    ratio = storage / available
+    if ratio >= 1:
+        return ("Normal", "ok")
+    if ratio >= 0.5:
+        return ("Watch", "warn")
+    return ("Critical", "danger")

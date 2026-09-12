@@ -4,6 +4,7 @@ import { useAuth } from "@clerk/clerk-react";
 import { DashboardShell, JAL_VIGYANI_NAV } from "../../components/DashboardShell";
 import { Pill, statusTone } from "../../components/dashboard/Pill";
 import { StatGrid } from "../../components/dashboard/StatGrid";
+import { DigitalTwin3D } from "../../components/twin/DigitalTwin3D";
 import type { StatCardData } from "../../lib/mockData";
 import { useAuthedData } from "../../lib/useAuthedData";
 import { useLanguage } from "../../lib/i18n";
@@ -1171,6 +1172,10 @@ const SECTION_META: Record<string, { title: string; subtitle: string }> = {
     title: "Canal schedule",
     subtitle: "Slot-wise water distribution plan.",
   },
+  "/app/jal-vigyani/twin": {
+    title: "Digital Twin",
+    subtitle: "Dam, canals and farm plots — live from the network state.",
+  },
   "/app/jal-vigyani/help": {
     title: "Help",
     subtitle: "Support for canal monitoring and escalation.",
@@ -1218,6 +1223,7 @@ export function JalVigyaniDashboardPage() {
             </div>
           }
         />
+        <Route path="twin" element={<DigitalTwin3D />} />
         <Route
           path="help"
           element={
