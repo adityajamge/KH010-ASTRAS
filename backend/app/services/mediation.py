@@ -76,6 +76,12 @@ _URGENCY_BOOST: dict[PriorityLevel, PriorityLevel] = {
     PriorityLevel.CRITICAL: PriorityLevel.CRITICAL,
 }
 
+#: PS14 loophole audit §7.5 "repeated objections to delay others": urgency
+#: is already capped at CRITICAL, but nothing previously stopped a farmer
+#: from objecting indefinitely. After this many objections on one conflict,
+#: hand it to a human (Jal Vigyani) instead of looping the engine forever.
+_MAX_OBJECTIONS_BEFORE_ESCALATION = 3
+
 
 def notify(
     db: Session,
@@ -282,6 +288,14 @@ def run_allocation_cycle(
 
     _sync_conflict(db, canal, outcome, claims, requests, actor_id)
     db.flush()
+
+    # Local import: app.services.network_state imports the dashboard
+    # endpoints, which import this module — a top-level import here would
+    # be circular. Drop this canal's dam from the twin's short cache so a
+    # farmer who just requested/objected/accepted doesn't see stale state.
+    from app.services import network_state
+
+    network_state._state_cache.pop(canal.dam_id, None)
     return outcome
 
 
@@ -554,13 +568,37 @@ def record_objection(
         status=ObjectionStatus.PENDING,
     )
     db.add(objection)
+    db.flush()
+
+    objection_count = (
+        db.query(Objection)
+        .filter(Objection.conflict_id == conflict.id, Objection.farmer_id == farmer.id)
+        .count()
+    )
+    escalated = objection_count >= _MAX_OBJECTIONS_BEFORE_ESCALATION
 
     boosted = _URGENCY_BOOST[req.urgency]
     if boosted != req.urgency:
         req.urgency = boosted
     db.flush()
 
+    # Escalating conflict.status is deferred until after the allocation
+    # cycle below: run_allocation_cycle -> _sync_conflict looks the
+    # conflict up via open_conflict(), whose status filter does not
+    # include ESCALATED — setting it beforehand would make this conflict
+    # invisible to that lookup and spawn a duplicate conflict row instead
+    # of updating this one.
     outcome = run_allocation_cycle(db, canal, actor_id=user.user_id)
+    if escalated:
+        conflict.status = ConflictStatus.ESCALATED
+        audit(
+            db,
+            "conflict.auto_escalated",
+            "conflict",
+            conflict.conflict_code,
+            actor_type=ActorType.SYSTEM,
+            details={"farmer_id": farmer.id, "objection_count": objection_count},
+        )
     revised_qty = outcome.allocations.get(req.id, previous_qty)
     allocation.reason = build_reason(
         float(req.quantity_requested), revised_qty, outcome, revised=True
@@ -571,14 +609,22 @@ def record_objection(
     notify(
         db,
         farmer.id,
-        "Objection recorded",
-        f"Reason: {reason.value}. Urgency is now {req.urgency.value}; "
-        + (
-            f"revised proposal: {revised_qty:.0f} units."
-            if changed
-            else "proposal unchanged — supply and priority constraints leave no room; see evidence."
+        "Conflict escalated for review" if escalated else "Objection recorded",
+        (
+            f"Reason: {reason.value}. Urgency is now {req.urgency.value}; "
+            + (
+                f"revised proposal: {revised_qty:.0f} units."
+                if changed
+                else "proposal unchanged — supply and priority constraints leave no room; see evidence."
+            )
+            + (
+                f" That's objection number {objection_count} on this conflict without "
+                "resolution — a Jal Vigyani will now review it directly."
+                if escalated
+                else ""
+            )
         ),
-        NotificationSeverity.INFO,
+        NotificationSeverity.WARNING if escalated else NotificationSeverity.INFO,
     )
 
     mediator_message = mediate_objection(
@@ -607,7 +653,7 @@ def record_objection(
         str(objection.id),
         actor_type=ActorType.FARMER,
         actor_id=user.user_id,
-        details={"reason": reason.value, "revised_qty": revised_qty},
+        details={"reason": reason.value, "revised_qty": revised_qty, "escalated": escalated},
     )
     return {
         "requested": float(req.quantity_requested),
@@ -619,6 +665,7 @@ def record_objection(
         "conflict_code": conflict.conflict_code,
         "urgency": req.urgency.value,
         "mediator_message": mediator_message,
+        "escalated": escalated,
     }
 
 

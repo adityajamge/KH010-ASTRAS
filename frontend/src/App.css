@@ -692,6 +692,10 @@
   margin: 0;
 }
 
+.dash-block-head--actions {
+  align-items: center;
+}
+
 .dash-block-head p {
   font-size: 14px;
   color: var(--ink-subtle);
@@ -1056,6 +1060,106 @@
   flex-wrap: wrap;
 }
 
+/* Small uppercase section header inside a detail panel — same look as
+   .home-card h2, reused here so nested sections (Participants, Objections,
+   Proposal) read as distinct blocks instead of running body-text paragraphs
+   into each other. */
+.section-label {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: var(--ink-subtle);
+  margin: 0 0 8px;
+}
+
+.section-label:not(:first-child) {
+  margin-top: 18px;
+}
+
+/* Static (non-interactive) name/value tag — same shape as .chip, without
+   the pointer/hover affordance, for read-only lists like participants. */
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  background: var(--surface-2);
+  border: 1px solid var(--hairline);
+  color: var(--ink-muted);
+}
+
+.tag strong {
+  color: var(--ink);
+  font-family: var(--font-mono);
+}
+
+.tag-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* One proposed allocation, as a compact chip instead of a run-on sentence. */
+.proposal-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 4px;
+}
+
+.proposal-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  padding: 5px 10px;
+  border-radius: 8px;
+  background: var(--surface-2);
+  border: 1px solid var(--hairline);
+  color: var(--ink-muted);
+}
+
+.proposal-chip strong {
+  color: var(--ink);
+  font-family: var(--font-mono);
+}
+
+/* One farmer's objection, as its own bordered card against .canvas so it
+   pops out of the surrounding .anomaly-panel (which shares .conflict-card's
+   surface-1 background) instead of blending into it. */
+.objection-card {
+  background: var(--canvas);
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  padding: 14px;
+}
+
+.objection-card + .objection-card {
+  margin-top: 10px;
+}
+
+.objection-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+
+.objection-card-head strong {
+  color: var(--ink);
+}
+
+.objection-card-reason {
+  font-size: 13px;
+  color: var(--ink-subtle);
+  margin: 0 0 8px;
+}
+
 .btn-xs {
   font-size: 13px;
   padding: 5px 12px;
@@ -1391,6 +1495,72 @@
   flex-wrap: wrap;
 }
 
+/* Proportional strip under the stat tiles: how much of the available canal
+   water is currently allocated to this farmer. Same tokens as delivery-bar
+   below — same visual language, not a new one. */
+.home-water-bar {
+  height: 6px;
+  border-radius: 9999px;
+  background: var(--surface-3);
+  overflow: hidden;
+  margin: 0 0 24px;
+}
+
+.home-water-bar > span {
+  display: block;
+  height: 100%;
+  background: var(--primary);
+  border-radius: 9999px;
+  transition: width 0.3s ease;
+}
+
+/* Two-column dashboard-home layout: a wider primary column (allocation,
+   mediation, schedule) and a narrower secondary column (canal status,
+   delivery, activity) instead of a flat symmetric grid. */
+.home-layout {
+  display: grid;
+  grid-template-columns: 1.6fr 1fr;
+  gap: 16px;
+  align-items: start;
+  margin-bottom: 32px;
+}
+
+.home-main,
+.home-side {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Primary card gets a quiet accent border in the same brand color already
+   used for buttons/focus rings — signals "this is where you act" without
+   adding a new color to the palette. */
+.home-card--primary {
+  border-left: 3px solid var(--primary);
+}
+
+.home-card-headrow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.home-card-headrow h2 {
+  margin: 0;
+}
+
+.home-card-headrow .status-dot {
+  flex: none;
+}
+
+.home-card-divider {
+  height: 1px;
+  background: var(--hairline);
+  margin: 16px 0;
+}
+
 .delivery-bar {
   height: 8px;
   border-radius: 9999px;
@@ -1404,6 +1574,112 @@
   height: 100%;
   background: var(--primary);
   border-radius: 9999px;
+}
+
+/* Delivery status as a connected step tracker (Amazon/Zomato/Blinkit-style
+   parcel tracking), built from existing tokens only — no new colors. */
+.delivery-timeline {
+  display: flex;
+  flex-direction: column;
+}
+
+.delivery-step {
+  display: flex;
+  gap: 14px;
+}
+
+.delivery-step-rail {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 14px;
+  flex: none;
+}
+
+.delivery-step-dot {
+  position: relative;
+  width: 14px;
+  height: 14px;
+  border-radius: 9999px;
+  background: var(--surface-3);
+  border: 2px solid var(--hairline-strong);
+  flex: none;
+  margin-top: 2px;
+}
+
+.delivery-step-line {
+  width: 2px;
+  flex: 1;
+  min-height: 26px;
+  background: var(--hairline-strong);
+  margin: 2px 0;
+}
+
+.delivery-step-content {
+  padding-bottom: 22px;
+}
+
+.delivery-step:last-child .delivery-step-content {
+  padding-bottom: 0;
+}
+
+.delivery-step-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ink-subtle);
+}
+
+.delivery-step-meta {
+  margin: 2px 0 0;
+  font-size: 13px;
+  color: var(--ink-subtle);
+}
+
+.delivery-step--done .delivery-step-dot {
+  background: var(--primary);
+  border-color: var(--primary);
+}
+
+.delivery-step--done .delivery-step-dot::after {
+  content: "";
+  position: absolute;
+  left: 3px;
+  top: 4px;
+  width: 6px;
+  height: 3px;
+  border-left: 2px solid var(--on-primary, #fff);
+  border-bottom: 2px solid var(--on-primary, #fff);
+  transform: rotate(-45deg);
+}
+
+.delivery-step--done .delivery-step-line {
+  background: var(--primary);
+}
+
+.delivery-step--done .delivery-step-title {
+  color: var(--ink);
+}
+
+.delivery-step--current .delivery-step-dot {
+  background: var(--canvas);
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-focus);
+}
+
+.delivery-step--current .delivery-step-title {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.delivery-step--issue .delivery-step-dot {
+  background: var(--danger);
+  border-color: var(--danger);
+}
+
+.delivery-step--issue .delivery-step-title {
+  color: var(--danger);
+  font-weight: 600;
 }
 
 /* ---------- Slot timeline (allocated water slots on a time axis) ---------- */
@@ -1668,7 +1944,8 @@
 }
 
 @media (max-width: 1024px) {
-  .home-grid {
+  .home-grid,
+  .home-layout {
     grid-template-columns: 1fr;
   }
 }
@@ -1746,6 +2023,50 @@
   border-right: 2px solid var(--hairline-strong);
   border-bottom: 2px solid var(--hairline-strong);
   transform: translateX(-50%) rotate(45deg);
+}
+
+/* Proportional bar per flow stage, relative to the largest stage value —
+   same visual language as delivery-bar/home-water-bar, not a new one. */
+.flow-stage-bar {
+  height: 5px;
+  border-radius: 9999px;
+  background: var(--surface-3);
+  overflow: hidden;
+  margin: 4px 0 2px;
+}
+
+.flow-stage-bar > span {
+  display: block;
+  height: 100%;
+  background: var(--primary);
+  border-radius: 9999px;
+}
+
+/* A canal row flagged for investigation gets a quiet accent border — same
+   pattern as .home-card--primary, reusing the existing danger token. */
+.dtable tr.dtable-row-alert td:first-child {
+  border-left: 3px solid var(--danger);
+}
+
+/* Slim banner card tying a dashboard home into a related full page (the
+   Digital Twin) — a .card with a horizontal layout instead of a new style. */
+.banner-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.banner-card h3 {
+  margin: 0 0 4px;
+  font-size: 16px;
+}
+
+.banner-card p {
+  margin: 0;
+  font-size: 14px;
+  color: var(--ink-subtle);
 }
 
 /* ---------- Floating assistant button ---------- */

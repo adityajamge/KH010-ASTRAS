@@ -89,6 +89,11 @@ class ObjectionResult(ORMBase):
     conflict_code: str | None
     urgency: str
     mediator_message: str | None = None
+    #: True once this farmer has objected to this conflict
+    #: _MAX_OBJECTIONS_BEFORE_ESCALATION times without resolution — the
+    #: conflict is auto-escalated to a Jal Vigyani rather than left to loop
+    #: indefinitely (PS14 loophole audit §7.5).
+    escalated: bool = False
 
 
 class AcceptResult(ORMBase):

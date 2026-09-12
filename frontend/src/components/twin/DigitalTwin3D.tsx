@@ -7,7 +7,11 @@ import { Scene, type Selection } from "./Scene";
 import { STATUS_COLOR, STATUS_LABEL } from "./twinStyle";
 import "./twin.css";
 
-const REFRESH_MS = 10_000;
+// 15s, not 10s: each poll is a real round trip to a remote Postgres that
+// costs several seconds even after batching its queries (see
+// app/services/network_state.py) — polling less aggressively meaningfully
+// cuts backend load without making the twin feel noticeably less live.
+const REFRESH_MS = 15_000;
 
 function fmt(value: number | null | undefined): string {
   if (value === null || value === undefined) return "—";
@@ -139,8 +143,21 @@ export function DigitalTwin3D() {
   }, [reload]);
 
   useEffect(() => {
-    const id = window.setInterval(() => reloadRef.current(), REFRESH_MS);
-    return () => window.clearInterval(id);
+    const id = window.setInterval(() => {
+      // Skip the round trip entirely while the tab isn't visible — a
+      // background tab has no reason to keep paying for a poll (each one
+      // costs a real network round trip to the backend/DB) nobody's
+      // watching; it'll refresh immediately on the visibilitychange below.
+      if (document.visibilityState === "visible") reloadRef.current();
+    }, REFRESH_MS);
+    function onVisible() {
+      if (document.visibilityState === "visible") reloadRef.current();
+    }
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      window.clearInterval(id);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
   }, []);
 
   if (loading && !data) {

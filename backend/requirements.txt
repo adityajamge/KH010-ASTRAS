@@ -15,3 +15,6 @@ openai>=1.50
 # Twilio channel (app/services/twilio_client.py, app/api/v1/endpoints/twilio_webhook.py)
 twilio>=9
 python-multipart>=0.0.9
+# LLM mediation agent (app/services/mediation_agent.py) — writes the
+# negotiation reply on objections; never decides allocation numbers.
+langchain-anthropic>=0.3

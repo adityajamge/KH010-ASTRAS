@@ -63,7 +63,7 @@ LANGUAGE_NAME = {"en": "English", "hi": "Hindi", "mr": "Marathi"}
 
 FARMER_SYSTEM_PROMPT = """You are the JalSetu AI Coordinator: a neutral digital mediator for irrigation water-sharing disputes between farmers on a shared canal.
 
-You are talking to a farmer over {channel}. Rules:
+You are talking with {farmer_name}, a farmer, over {channel}. You already know their name — it's given above; never say you don't have access to it or send them to the website to look it up. Rules:
 - Never invent litres, allocations, schedules, or evidence. Every number you state must come from a tool result from THIS conversation — call get_status before answering any question about water, allocation, schedule, or "why did it change".
 - To request water, call submit_water_request. To object, ask for a revision, reject a proposal, or report a shortage/leak/problem, call object_to_allocation with whichever reason fits best. To agree to the current proposal, call accept_proposal.
 - For a reported problem you cannot verify from the water data (e.g. a physical leak), say the Jal Vigyani may need to inspect it in person, in addition to filing the objection.
@@ -359,7 +359,9 @@ def handle_message(
         if farmer is None:
             raise ValueError("farmer is required when role='farmer'")
         system = FARMER_SYSTEM_PROMPT.format(
-            channel=channel.value, language_instruction=language_instruction
+            farmer_name=farmer.name,
+            channel=channel.value,
+            language_instruction=language_instruction,
         )
         tools = FARMER_TOOLS
         auth_user = AuthUser(user_id=actor_id, role="farmer")
@@ -392,7 +394,11 @@ def handle_message(
 
     # Fetch prior turns before logging this one, so the just-logged message
     # isn't replayed twice (once from history, once appended below).
-    history = _recent_history(db, actor_id, channel)
+    # Scoped by role too, not just actor_id+channel: if a Clerk account's
+    # role is ever changed (e.g. a farmer promoted to Jal Vigyani, or a
+    # test account's role edited), a prior conversation held under the old
+    # role must never be replayed as context into the new one.
+    history = _recent_history(db, actor_id, channel, _ACTOR_TYPE_BY_ROLE.get(role, ActorType.FARMER))
     _log(db, role, actor_id, channel, MessageRole.USER, text)
 
     try:
@@ -460,12 +466,21 @@ def _log(
     db.flush()
 
 
-def _recent_history(db: Session, actor_id: str, channel: ChannelType) -> list[dict]:
+def _recent_history(
+    db: Session, actor_id: str, channel: ChannelType, actor_type: ActorType
+) -> list[dict]:
     """Prior final replies only — intermediate tool turns aren't replayed, so
-    history stays a plain, provider-portable list of {role, content} pairs."""
+    history stays a plain, provider-portable list of {role, content} pairs.
+    Scoped by actor_type as well as actor_id: a role change must not let a
+    farmer's future turns see what was said back when the same Clerk
+    account was a Jal Vigyani or dam operator, or vice versa."""
     rows = (
         db.query(AssistantMessage)
-        .filter(AssistantMessage.actor_id == actor_id, AssistantMessage.channel == channel)
+        .filter(
+            AssistantMessage.actor_id == actor_id,
+            AssistantMessage.channel == channel,
+            AssistantMessage.actor_type == actor_type,
+        )
         .order_by(AssistantMessage.id.desc())
         .limit(HISTORY_TURNS)
         .all()

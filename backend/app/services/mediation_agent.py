@@ -58,6 +58,14 @@ async def _amediate(*, farmer_name: str, canal_name: str, facts: str, lang: str)
         model="claude-haiku-4-5-20251001",
         api_key=settings.ANTHROPIC_API_KEY,
         max_tokens=512,
+        # Bounded so a slow/unresponsive provider can't stall the
+        # synchronous objection-submission request for minutes — this call
+        # sits in the critical path of POST /mediation/objections, and a
+        # mediation reply is a nice-to-have (see module docstring), never
+        # worth blocking the deterministic outcome on. Left unset, the
+        # underlying SDK's default is 10 minutes, retried up to twice.
+        timeout=15,
+        max_retries=1,
     )
     system_prompt = _SYSTEM_PROMPT.format(language=_LANGUAGE_NAME.get(lang, "English"))
     response = await model.ainvoke(

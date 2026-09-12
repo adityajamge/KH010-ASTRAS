@@ -315,6 +315,9 @@ export interface ObjectionResult {
   conflict_code: string | null;
   urgency: string;
   mediator_message: string | null;
+  /** True once this farmer has objected to this conflict repeatedly
+   * without resolution — it's now escalated to a Jal Vigyani for review. */
+  escalated: boolean;
 }
 
 export interface AgreementRead {

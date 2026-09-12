@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
-import { Navigate, Route, Routes, useLocation } from "react-router-dom";
+import { Link, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { Capacitor } from "@capacitor/core";
 import { useAuth } from "@clerk/clerk-react";
 import { DashboardShell, DAM_NAV } from "../../components/DashboardShell";
@@ -107,21 +107,32 @@ function ReservoirPanel({ chain }: { chain?: FlowChainRead }) {
       </div>
     );
   }
+  const maxValue = Math.max(1, ...chain.stages.map((s) => Math.abs(s.value)));
   return (
     <div className="card">
       <div className="flow-chain">
-        {chain.stages.map((stage, i) => (
-          <div className="flow-stage" key={stage.label}>
-            <div className="flow-stage-head">
-              <span className="flow-stage-label">{t(stage.label)}</span>
-              <span className="flow-stage-value">{fmtNum(stage.value)}</span>
+        {chain.stages.map((stage, i) => {
+          const pct = Math.min(100, (Math.abs(stage.value) / maxValue) * 100);
+          return (
+            <div className="flow-stage" key={stage.label}>
+              <div className="flow-stage-head">
+                <span className="flow-stage-label">{t(stage.label)}</span>
+                <span className="flow-stage-value">{fmtNum(stage.value)}</span>
+              </div>
+              <div
+                className="flow-stage-bar"
+                role="img"
+                aria-label={`${stage.label}: ${fmtNum(stage.value)}`}
+              >
+                <span style={{ width: `${pct}%` }} />
+              </div>
+              {stage.note && <p className="flow-stage-note">{stage.note}</p>}
+              {i < chain.stages.length - 1 && (
+                <span className="flow-arrow" aria-hidden="true" />
+              )}
             </div>
-            {stage.note && <p className="flow-stage-note">{stage.note}</p>}
-            {i < chain.stages.length - 1 && (
-              <span className="flow-arrow" aria-hidden="true" />
-            )}
-          </div>
-        ))}
+          );
+        })}
       </div>
       {chain.alert && chain.alert_note && (
         <p className="field-error" style={{ marginBottom: 0 }}>
@@ -165,6 +176,8 @@ function RainfallPanel({ data }: { data: DamData }) {
 function ReleaseTable({ data }: { data: DamData }) {
   const { summary, loading, error, reload } = data;
   const { t } = useLanguage();
+  const [statusFilter, setStatusFilter] = useState<string | null>(null);
+
   if (loading || error || !summary) {
     return <PageState loading={loading} error={error} onRetry={reload} />;
   }
@@ -175,37 +188,70 @@ function ReleaseTable({ data }: { data: DamData }) {
       </div>
     );
   }
+
+  const statuses = Array.from(new Set(summary.releases.map((r) => r.status)));
+  const visible = statusFilter
+    ? summary.releases.filter((r) => r.status === statusFilter)
+    : summary.releases;
+
   return (
-    <div className="dtable-wrap">
-      <table className="dtable">
-        <thead>
-          <tr>
-            <th>{t("Canal")}</th>
-            <th className="num">{t("Requested")}</th>
-            <th className="num">{t("Approved")}</th>
-            <th className="num">{t("Released")}</th>
-            <th className="num">{t("Received")}</th>
-            <th className="num">{t("Difference")}</th>
-            <th>{t("Status")}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {summary.releases.map((row) => (
-            <tr key={row.canal}>
-              <td>{row.canal}</td>
-              <td className="num">{fmtNum(row.requested)}</td>
-              <td className="num">{fmtNum(row.approved)}</td>
-              <td className="num">{fmtNum(row.released)}</td>
-              <td className="num">{fmtNum(row.received)}</td>
-              <td className="num">{fmtNum(row.difference)}</td>
-              <td>
-                <Pill tone={statusTone(row.status)}>{t(row.status)}</Pill>
-              </td>
+    <>
+      <div className="objection-options" style={{ marginBottom: 12 }}>
+        <button
+          type="button"
+          className={`chip${statusFilter === null ? " active" : ""}`}
+          onClick={() => setStatusFilter(null)}
+        >
+          {t("All")} ({summary.releases.length})
+        </button>
+        {statuses.map((status) => {
+          const count = summary.releases.filter((r) => r.status === status).length;
+          return (
+            <button
+              key={status}
+              type="button"
+              className={`chip${statusFilter === status ? " active" : ""}`}
+              onClick={() => setStatusFilter((s) => (s === status ? null : status))}
+            >
+              {t(status)} ({count})
+            </button>
+          );
+        })}
+      </div>
+      <div className="dtable-wrap">
+        <table className="dtable">
+          <thead>
+            <tr>
+              <th>{t("Canal")}</th>
+              <th className="num">{t("Requested")}</th>
+              <th className="num">{t("Approved")}</th>
+              <th className="num">{t("Released")}</th>
+              <th className="num">{t("Received")}</th>
+              <th className="num">{t("Difference")}</th>
+              <th>{t("Status")}</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+          </thead>
+          <tbody>
+            {visible.map((row) => (
+              <tr
+                key={row.canal}
+                className={row.status === "Needs Investigation" ? "dtable-row-alert" : undefined}
+              >
+                <td>{row.canal}</td>
+                <td className="num">{fmtNum(row.requested)}</td>
+                <td className="num">{fmtNum(row.approved)}</td>
+                <td className="num">{fmtNum(row.released)}</td>
+                <td className="num">{fmtNum(row.received)}</td>
+                <td className="num">{fmtNum(row.difference)}</td>
+                <td>
+                  <Pill tone={statusTone(row.status)}>{t(row.status)}</Pill>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </>
   );
 }
 
@@ -391,13 +437,38 @@ function DashboardHome({ data }: { data: DamData }) {
       </div>
 
       <div className="dash-block">
-        <div className="dash-block-head">
+        <div className="card banner-card">
+          <div>
+            <h3>{t("Digital Twin")}</h3>
+            <p>{t("See the dam, canals and farm plots live in 3D.")}</p>
+          </div>
+          <Link className="btn btn-primary btn-xs" to="/app/dam/twin">
+            {t("Open Digital Twin")}
+          </Link>
+        </div>
+      </div>
+
+      <PublishSupplySection data={data} />
+    </>
+  );
+}
+
+function PublishSupplySection({ data }: { data: DamData }) {
+  const { t } = useLanguage();
+  const [open, setOpen] = useState(true);
+  return (
+    <div className="dash-block">
+      <div className="dash-block-head dash-block-head--actions">
+        <div>
           <h3>{t("Publish supply update")}</h3>
           <p>{t("Numbers you publish here drive every dashboard immediately.")}</p>
         </div>
-        <PublishSupplyForm data={data} />
+        <button type="button" className="btn btn-secondary btn-xs" onClick={() => setOpen((v) => !v)}>
+          {open ? t("Hide") : t("Update Supply")}
+        </button>
       </div>
-    </>
+      {open && <PublishSupplyForm data={data} />}
+    </div>
   );
 }
 

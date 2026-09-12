@@ -335,6 +335,12 @@ function MediationPanel({
           </div>
           {result && (
             <>
+              {result.escalated && (
+                <p className="negotiation-reason" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <span className="status-dot warn" aria-hidden="true" />
+                  {t("This conflict has been escalated to a Jal Vigyani for direct review.")}
+                </p>
+              )}
               {result.mediator_message ? (
                 <p className="negotiation-reason mediator-message">
                   {result.mediator_message}
@@ -389,6 +395,59 @@ function MediationPanel({
   );
 }
 
+function flowStateLabel(state: string): string {
+  switch (state) {
+    case "low":
+      return "Low canal flow";
+    case "high":
+      return "High canal flow";
+    case "normal":
+      return "Normal canal flow";
+    default:
+      return "Flow status unknown";
+  }
+}
+
+function RecentActivityCard({ items }: { items: FarmerDashboardSummary["recent_activity"] }) {
+  const { t } = useLanguage();
+  const [expanded, setExpanded] = useState(false);
+  const visible = expanded ? items : items.slice(0, 3);
+  return (
+    <section className="home-card" aria-label={t("Recent activity")}>
+      <h2>{t("Recent Activity")}</h2>
+      {items.length > 0 ? (
+        <ul className="plain-list">
+          {visible.map((item) => (
+            <li key={`${item.title}-${item.created_at}`}>
+              <span className="check-mark" aria-hidden="true" />
+              <span>
+                <span className="activity-title">{item.title}</span>
+                <span className="activity-meta">{item.meta}</span>
+              </span>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="negotiation-reason">{t("No activity yet.")}</p>
+      )}
+      <div className="home-card-actions">
+        {items.length > 3 && (
+          <button
+            type="button"
+            className="btn btn-secondary btn-xs"
+            onClick={() => setExpanded((v) => !v)}
+          >
+            {expanded ? t("Show less") : t("Show more")}
+          </button>
+        )}
+        <Link className="btn btn-secondary btn-xs" to="/app/farmer/history">
+          {t("View History")}
+        </Link>
+      </div>
+    </section>
+  );
+}
+
 function DashboardHome({ data }: { data: FarmerData }) {
   const { summary, mediation, loading, error, reload } = data;
   const now = useNow();
@@ -400,6 +459,10 @@ function DashboardHome({ data }: { data: FarmerData }) {
   const todaysGroup = firstSlot
     ? groupSchedulesByDate(summary.upcoming_schedules).find((g) => g.date === firstSlot.date) ?? null
     : null;
+  const allocatedPct =
+    summary.available_water > 0
+      ? Math.min(100, Math.round((summary.allocated_water / summary.available_water) * 100))
+      : 0;
 
   return (
     <>
@@ -417,147 +480,128 @@ function DashboardHome({ data }: { data: FarmerData }) {
           <p className="home-stat-value">{fmtQty(summary.remaining_water)} L</p>
         </div>
       </div>
+      <div
+        className="home-water-bar"
+        role="img"
+        aria-label={`${allocatedPct}% ${t("of available canal water allocated to you")}`}
+        title={`${allocatedPct}% ${t("of available canal water allocated to you")}`}
+      >
+        <span style={{ width: `${allocatedPct}%` }} />
+      </div>
 
-      <div className="home-grid">
-        <section className="home-card" aria-label={t("Current allocation")}>
-          <h2>{t("Current Allocation")}</h2>
-          {summary.current_allocation && summary.current_request ? (
-            <>
-              <p className="home-card-crop">{summary.current_request.crop}</p>
-              <p className="home-card-big">
-                {fmtQty(summary.current_allocation.allocated_quantity)} /{" "}
-                {fmtQty(summary.current_request.quantity_requested)} {t("units")}
+      <div className="home-layout">
+        <div className="home-main">
+          <section className="home-card home-card--primary" aria-label={t("Water allocation and mediation")}>
+            <div className="home-card-headrow">
+              <h2>{t("Your Allocation")}</h2>
+              {summary.current_allocation && (
+                <Pill tone={statusTone(summary.current_allocation.status)}>
+                  {t(formatStatus(summary.current_allocation.status))}
+                </Pill>
+              )}
+            </div>
+            {summary.current_allocation && summary.current_request ? (
+              <>
+                <p className="home-card-crop">{summary.current_request.crop}</p>
+                <p className="home-card-meta">
+                  {fmtDate(summary.current_allocation.allocation_date, t)} ·{" "}
+                  {fmtTime(summary.current_allocation.time_start)}–
+                  {fmtTime(summary.current_allocation.time_end)} · {t("Canal")}{" "}
+                  {summary.canal_name ?? "—"}
+                </p>
+              </>
+            ) : (
+              <p className="negotiation-reason">
+                {t("No allocation yet — submit a water request to get started.")}
               </p>
-              <p className="home-card-meta">
-                {fmtDate(summary.current_allocation.allocation_date, t)} ·{" "}
-                {fmtTime(summary.current_allocation.time_start)}–
-                {fmtTime(summary.current_allocation.time_end)}
-              </p>
-              <p className="home-card-meta">
-                {t("Canal")} {summary.canal_name ?? "—"}
-              </p>
-            </>
-          ) : (
-            <p className="negotiation-reason">{t("No allocation yet.")}</p>
-          )}
-          <div className="home-card-actions">
-            <Link className="btn btn-secondary btn-xs" to="/app/farmer/allocation">
-              {t("View Allocation")}
-            </Link>
-          </div>
-        </section>
+            )}
+            <div className="home-card-divider" />
+            {mediation ? (
+              <MediationPanel mediation={mediation} onChanged={reload} />
+            ) : (
+              <p className="negotiation-reason">{t("No proposal yet.")}</p>
+            )}
+          </section>
 
-        <section className="home-card" aria-label={t("JalSetu mediation")}>
-          <h2>{t("JalSetu Mediation")}</h2>
-          {mediation && mediation.has_proposal ? (
-            <>
-              <div className="negotiation-row">
-                <span>{t("Your request")}</span>
-                <span className="val">
-                  {fmtQty(mediation.requested)} {t("units")}
-                </span>
-              </div>
-              <div className="negotiation-row">
-                <span>{t("Allocated")}</span>
-                <span className="val">
-                  {fmtQty(mediation.allocated)} {t("units")}
-                </span>
-              </div>
-            </>
-          ) : (
-            <p className="negotiation-reason">{t("No proposal yet.")}</p>
-          )}
-          <div className="home-card-actions">
-            <Link className="btn btn-secondary btn-xs" to="/app/farmer/mediation">
-              {t("Open Mediation")}
-            </Link>
-          </div>
-        </section>
-
-        <section className="home-card" aria-label={t("Today's schedule")}>
-          <h2>{t("Today's Schedule")}</h2>
-          {firstSlot ? (
-            <>
-              <SlotTimeline
-                date={todaysGroup?.date ?? firstSlot.date}
-                slots={todaysGroup?.slots ?? [firstSlot]}
-                now={now}
-              />
-              <p className="home-card-meta">
-                {t("Canal")} {summary.canal_name ?? "—"}
-              </p>
-              <p className="home-card-meta">{fmtDate(firstSlot.date, t)}</p>
-            </>
-          ) : (
-            <p className="negotiation-reason">{t("No slots scheduled yet.")}</p>
-          )}
-          <div className="home-card-actions">
-            <Link className="btn btn-secondary btn-xs" to="/app/farmer/schedule">
-              {t("View Schedule")}
-            </Link>
-          </div>
-        </section>
-
-        <section className="home-card" aria-label={t("Delivery status")}>
-          <h2>{t("Delivery Status")}</h2>
-          {summary.delivery ? (
-            <DeliverySummary
-              authorized={summary.delivery.allocated_quantity}
-              delivered={summary.delivery.delivered_quantity}
-            />
-          ) : (
-            <p className="negotiation-reason">{t("No deliveries yet.")}</p>
-          )}
-          <div className="home-card-actions">
-            <Link className="btn btn-secondary btn-xs" to="/app/farmer/delivery">
-              {t("View Delivery")}
-            </Link>
-          </div>
-        </section>
-
-        <section className="home-card" aria-label={t("Weather and water")}>
-          <h2>{t("Weather / Water")}</h2>
-          <ul className="plain-list">
-            {summary.advisory.lines.map((line, i) => (
-              <li key={`${i}-${line}`}>
-                <span
-                  className={`status-dot${summary.advisory.has_conflict && i === 2 ? " warn" : " ok"}`}
-                  aria-hidden="true"
+          <section className="home-card" aria-label={t("Today's schedule")}>
+            <h2>{t("Today's Schedule")}</h2>
+            {firstSlot ? (
+              <>
+                <SlotTimeline
+                  date={todaysGroup?.date ?? firstSlot.date}
+                  slots={todaysGroup?.slots ?? [firstSlot]}
+                  now={now}
                 />
-                {line}
-              </li>
-            ))}
-          </ul>
-          <div className="home-card-actions">
-            <Link className="btn btn-secondary btn-xs" to="/app/farmer/alerts">
-              {t("View Alerts")}
-            </Link>
-          </div>
-        </section>
+                <p className="home-card-meta">
+                  {t("Canal")} {summary.canal_name ?? "—"} · {fmtDate(firstSlot.date, t)}
+                </p>
+              </>
+            ) : (
+              <p className="negotiation-reason">{t("No slots scheduled yet.")}</p>
+            )}
+            <div className="home-card-actions">
+              <Link className="btn btn-secondary btn-xs" to="/app/farmer/schedule">
+                {t("View Full Schedule")}
+              </Link>
+            </div>
+          </section>
+        </div>
 
-        <section className="home-card" aria-label={t("Recent activity")}>
-          <h2>{t("Recent Activity")}</h2>
-          {summary.recent_activity.length > 0 ? (
+        <div className="home-side">
+          <section className="home-card" aria-label={t("Canal live status")}>
+            <h2>{t("Canal Live Status")}</h2>
+            <div className="home-card-headrow">
+              <span
+                className={`status-dot${summary.advisory.has_conflict ? " warn" : " ok"}`}
+                aria-hidden="true"
+              />
+              <span className="home-card-crop" style={{ flex: 1 }}>
+                {t("Canal")} {summary.canal_name ?? "—"} — {t(flowStateLabel(summary.advisory.flow_state))}
+              </span>
+            </div>
             <ul className="plain-list">
-              {summary.recent_activity.map((item) => (
-                <li key={`${item.title}-${item.created_at}`}>
-                  <span className="check-mark" aria-hidden="true" />
-                  <span>
-                    <span className="activity-title">{item.title}</span>
-                    <span className="activity-meta">{item.meta}</span>
-                  </span>
+              {summary.advisory.lines.map((line, i) => (
+                <li key={`${i}-${line}`}>
+                  <span
+                    className={`status-dot${summary.advisory.has_conflict && i === 2 ? " warn" : " ok"}`}
+                    aria-hidden="true"
+                  />
+                  {line}
                 </li>
               ))}
             </ul>
-          ) : (
-            <p className="negotiation-reason">{t("No activity yet.")}</p>
-          )}
-          <div className="home-card-actions">
-            <Link className="btn btn-secondary btn-xs" to="/app/farmer/history">
-              {t("View History")}
-            </Link>
-          </div>
-        </section>
+            <div className="home-card-actions">
+              <Link className="btn btn-primary btn-xs" to="/app/farmer/twin">
+                {t("Open Digital Twin")}
+              </Link>
+              <Link className="btn btn-secondary btn-xs" to="/app/farmer/alerts">
+                {t("View Alerts")}
+              </Link>
+            </div>
+          </section>
+
+          <section className="home-card" aria-label={t("Delivery status")}>
+            <h2>{t("Delivery Status")}</h2>
+            {summary.delivery ? (
+              <DeliverySummary
+                authorized={summary.delivery.allocated_quantity}
+                delivered={summary.delivery.delivered_quantity}
+              />
+            ) : (
+              <p className="negotiation-reason">{t("No deliveries yet.")}</p>
+            )}
+            <div className="home-card-actions">
+              <Link className="btn btn-secondary btn-xs" to="/app/farmer/delivery">
+                {t("View Delivery")}
+              </Link>
+              <Link className="btn btn-secondary btn-xs" to="/app/farmer/mediation">
+                {t("Report Issue")}
+              </Link>
+            </div>
+          </section>
+
+          <RecentActivityCard items={summary.recent_activity} />
+        </div>
       </div>
     </>
   );
@@ -886,35 +930,145 @@ function ScheduleSection({ data }: { data: FarmerData }) {
   );
 }
 
+type DeliveryStepState = "done" | "current" | "pending" | "issue";
+
+interface DeliveryStepData {
+  key: string;
+  title: string;
+  meta?: string;
+  state: DeliveryStepState;
+}
+
+/** Vertical step tracker — same idea as an Amazon/Zomato/Blinkit order
+ * tracker, built only from statuses the backend can actually reach (see
+ * docs/EDGE_CASE_AUDIT.md: allocation status never actually advances past
+ * "accepted" in this system, so the steps here stop at real, reachable
+ * milestones instead of inventing "out for delivery"-style stages). */
+function DeliveryTimeline({ steps }: { steps: DeliveryStepData[] }) {
+  return (
+    <div className="delivery-timeline">
+      {steps.map((step, i) => (
+        <div className={`delivery-step delivery-step--${step.state}`} key={step.key}>
+          <div className="delivery-step-rail">
+            <span className="delivery-step-dot" />
+            {i < steps.length - 1 && <span className="delivery-step-line" />}
+          </div>
+          <div className="delivery-step-content">
+            <p className="delivery-step-title">{step.title}</p>
+            {step.meta && <p className="delivery-step-meta">{step.meta}</p>}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function DeliverySection({ data }: { data: FarmerData }) {
   const { summary, loading, error, reload } = data;
   const { t } = useLanguage();
   if (loading || error || !summary) {
     return <PageState loading={loading} error={error} onRetry={reload} />;
   }
-  if (!summary.delivery) {
+
+  const request = summary.current_request;
+  if (!request) {
     return (
       <div className="dash-block">
         <div className="card">
-          <p className="negotiation-reason">{t("No deliveries recorded yet.")}</p>
+          <p className="negotiation-reason">
+            {t("No requests yet — submit a water request to start tracking delivery.")}
+          </p>
+          <div className="home-card-actions">
+            <Link className="btn btn-primary btn-xs" to="/app/farmer/request">
+              {t("Request Water")}
+            </Link>
+          </div>
         </div>
       </div>
     );
   }
+
+  const allocation = summary.current_allocation;
+  const delivery = summary.delivery;
+  const schedule = allocation
+    ? summary.upcoming_schedules.find((s) => s.allocation_id === allocation.id)
+    : undefined;
+  const accepted = allocation?.status === "accepted";
+
+  // Steps 1-3 are a strict linear progression; "reached" is the furthest
+  // one whose real precondition is true.
+  const reached = accepted ? 3 : schedule ? 2 : allocation ? 1 : 0;
+  const linearState = (idx: number): DeliveryStepState =>
+    idx <= reached ? "done" : idx === reached + 1 ? "current" : "pending";
+
+  // Delivery is its own status enum, not a linear step — read directly.
+  const deliveryState: DeliveryStepState = !delivery
+    ? "pending"
+    : delivery.delivery_status === "under_delivery" ||
+        delivery.delivery_status === "investigation_required"
+      ? "issue"
+      : delivery.delivery_status === "complete"
+        ? "done"
+        : "current"; // on_track / over_delivery: delivery has started
+
+  const steps: DeliveryStepData[] = [
+    {
+      key: "requested",
+      title: t("Request submitted"),
+      meta: `${request.crop} · ${fmtQty(request.quantity_requested)} ${t("units")} · ${fmtDate(request.request_date, t)}`,
+      state: "done",
+    },
+    {
+      key: "proposed",
+      title: t("Allocation proposed"),
+      meta: allocation ? `${fmtQty(allocation.allocated_quantity)} ${t("units")}` : undefined,
+      state: linearState(1),
+    },
+    {
+      key: "scheduled",
+      title: t("Schedule confirmed"),
+      meta: schedule
+        ? `${fmtDate(schedule.date, t)} · ${fmtTime(schedule.start_time)}–${fmtTime(schedule.end_time)}`
+        : undefined,
+      state: linearState(2),
+    },
+    {
+      key: "accepted",
+      title: t("You accepted the proposal"),
+      state: linearState(3),
+    },
+    {
+      key: "delivery",
+      title:
+        deliveryState === "done"
+          ? t("Water delivered")
+          : deliveryState === "issue"
+            ? t("Delivery issue — under investigation")
+            : t("Delivery in progress"),
+      meta: delivery
+        ? `${fmtQty(delivery.delivered_quantity)} / ${fmtQty(delivery.allocated_quantity)} ${t("units")}`
+        : undefined,
+      state: deliveryState,
+    },
+  ];
+
   return (
     <div className="dash-block">
       <div className="card">
-        <DeliverySummary
-          authorized={summary.delivery.allocated_quantity}
-          delivered={summary.delivery.delivered_quantity}
-        />
-        <p className="negotiation-reason">
-          {t("Status:")} {t(formatStatus(summary.delivery.delivery_status))}
-        </p>
+        <DeliveryTimeline steps={steps} />
+        {delivery && (
+          <>
+            <div className="home-card-divider" />
+            <DeliverySummary
+              authorized={delivery.allocated_quantity}
+              delivered={delivery.delivered_quantity}
+            />
+          </>
+        )}
         <div className="home-card-actions">
-          <button type="button" className="btn btn-secondary btn-xs">
+          <Link className="btn btn-secondary btn-xs" to="/app/farmer/mediation">
             {t("Report Issue")}
-          </button>
+          </Link>
         </div>
       </div>
     </div>

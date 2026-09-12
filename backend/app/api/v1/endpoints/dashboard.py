@@ -8,6 +8,7 @@ Definitions (also shown in the UI):
 """
 
 from fastapi import APIRouter, Depends, HTTPException, status as http_status
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.core.auth import AuthUser, require_dam_operator, require_farmer
@@ -267,44 +268,66 @@ def dam_summary(
             status_code=http_status.HTTP_404_NOT_FOUND, detail="Dam not found"
         )
     canals = db.query(Canal).filter(Canal.dam_id == dam.id).order_by(Canal.name).all()
+    canal_ids = [c.id for c in canals]
+
+    # Batched per-canal aggregates (PS14 perf fix): the version of this loop
+    # that issued 1-3 queries per canal took ~300ms per round trip against a
+    # remote Postgres, so a dam with a dozen canals cost several seconds on
+    # every dashboard/twin load. These three queries replace all of that,
+    # regardless of how many canals the dam has.
+    requested_by_canal: dict[int, float] = {}
+    approved_by_canal: dict[int, float] = {}
+    delivered_by_canal: dict[int, float] = {}
+    if canal_ids:
+        requested_by_canal = dict(
+            db.query(Farmer.canal_id, func.sum(WaterRequest.quantity_requested))
+            .join(WaterRequest, WaterRequest.farmer_id == Farmer.id)
+            .filter(
+                Farmer.canal_id.in_(canal_ids),
+                WaterRequest.status.in_(_LIVE_REQUEST_STATUSES),
+            )
+            .group_by(Farmer.canal_id)
+            .all()
+        )
+        # Latest allocation per farmer (so a superseded proposal doesn't
+        # double-count) — one query for every canal's farmers, then dedupe
+        # and re-group by canal in Python. A farmer belongs to exactly one
+        # canal, so this is equivalent to doing the dedup per canal.
+        approved_rows = (
+            db.query(Allocation, Farmer.canal_id)
+            .join(Farmer, Allocation.farmer_id == Farmer.id)
+            .filter(
+                Farmer.canal_id.in_(canal_ids),
+                Allocation.status.in_(_ACTIVE_ALLOCATION_STATUSES),
+            )
+            .all()
+        )
+        latest_by_farmer: dict[int, Allocation] = {}
+        canal_by_farmer: dict[int, int] = {}
+        for allocation, canal_id in approved_rows:
+            latest_by_farmer[allocation.farmer_id] = allocation
+            canal_by_farmer[allocation.farmer_id] = canal_id
+        for farmer_id, allocation in latest_by_farmer.items():
+            c = canal_by_farmer[farmer_id]
+            approved_by_canal[c] = approved_by_canal.get(c, 0.0) + float(allocation.allocated_quantity)
+
+        delivered_by_canal = dict(
+            db.query(Farmer.canal_id, func.sum(Delivery.delivered_quantity))
+            .join(Allocation, Delivery.allocation_id == Allocation.id)
+            .join(Farmer, Allocation.farmer_id == Farmer.id)
+            .filter(Farmer.canal_id.in_(canal_ids))
+            .group_by(Farmer.canal_id)
+            .all()
+        )
 
     releases: list[CanalReleaseRow] = []
     chain_received = 0.0
     chain_approved = 0.0
     chain_delivered = 0.0
     for canal in canals:
-        requested = (
-            db.query(WaterRequest)
-            .join(Farmer, WaterRequest.farmer_id == Farmer.id)
-            .filter(
-                Farmer.canal_id == canal.id,
-                WaterRequest.status.in_(_LIVE_REQUEST_STATUSES),
-            )
-            .all()
-        )
-        requested_total = sum(float(r.quantity_requested) for r in requested)
-        approved_rows = (
-            db.query(Allocation)
-            .join(Farmer, Allocation.farmer_id == Farmer.id)
-            .filter(
-                Farmer.canal_id == canal.id,
-                Allocation.status.in_(_ACTIVE_ALLOCATION_STATUSES),
-            )
-            .all()
-        )
-        # Latest row per farmer so superseded proposals don't double-count.
-        latest: dict[int, Allocation] = {}
-        for row in approved_rows:
-            latest[row.farmer_id] = row
-        approved_total = sum(float(r.allocated_quantity) for r in latest.values())
-        delivered_total = (
-            db.query(Delivery)
-            .join(Allocation, Delivery.allocation_id == Allocation.id)
-            .join(Farmer, Allocation.farmer_id == Farmer.id)
-            .filter(Farmer.canal_id == canal.id)
-            .all()
-        )
-        received_total = sum(float(d.delivered_quantity) for d in delivered_total)
+        requested_total = float(requested_by_canal.get(canal.id) or 0.0)
+        approved_total = float(approved_by_canal.get(canal.id) or 0.0)
+        received_total = float(delivered_by_canal.get(canal.id) or 0.0)
         released = float(canal.current_flow)
         difference = max(0.0, released - received_total)
         chain_received += released
@@ -322,7 +345,6 @@ def dam_summary(
             )
         )
 
-    canal_ids = [c.id for c in canals]
     open_anomalies = (
         db.query(Anomaly)
         .filter(

@@ -68,9 +68,11 @@ class ScriptedLLMClient(LLMClient):
     def __init__(self, script: list[LLMTurn]):
         self._script = list(script)
         self.seen_tools: list[list[str]] = []
+        self.seen_history: list[list[dict]] = []
 
     def complete(self, system, history, tools):
         self.seen_tools.append([t["name"] for t in tools])
+        self.seen_history.append(list(history))
         return self._script.pop(0)
 
     def assistant_message(self, turn):
@@ -456,6 +458,41 @@ def test_web_and_twilio_turns_share_one_audit_trail_per_actor(db_session, farmer
     channels = {row.channel for row in rows}
     assert channels == {ChannelType.WEB, ChannelType.TWILIO}
     assert all(row.actor_id == farmer.clerk_user_id for row in rows)
+
+
+def test_role_change_on_the_same_account_does_not_leak_history_across_roles(
+    db_session, farmer, monkeypatch
+):
+    """A Clerk account's role can change over its lifetime (e.g. reassigned
+    from Jal Vigyani to farmer, or a test account's metadata edited) — a
+    conversation held under the old role must never be replayed as context
+    once the account is a different role, even though actor_id is the same
+    Clerk user throughout."""
+    shared_actor_id = "clerk-shared-account"
+
+    jv_reply = "Farmer X owes 500 units, Farmer Y owes 300 units on this dam."
+    monkeypatch.setattr(
+        ai_coordinator, "get_llm_client", lambda: ScriptedLLMClient([LLMTurn(text=jv_reply, tool_calls=[])])
+    )
+    ai_coordinator.handle_message(
+        db_session, role="jal_vigyani", actor_id=shared_actor_id, channel=ChannelType.WEB,
+        text="list every farmer's allocation on my dam", dam_id=1,
+    )
+    db_session.commit()
+
+    farmer_client = ScriptedLLMClient([LLMTurn(text="Here is your status.", tool_calls=[])])
+    monkeypatch.setattr(ai_coordinator, "get_llm_client", lambda: farmer_client)
+    ai_coordinator.handle_message(
+        db_session, role="farmer", actor_id=shared_actor_id, channel=ChannelType.WEB,
+        text="what's my status", farmer=farmer,
+    )
+    db_session.commit()
+
+    # The farmer turn must start from empty history — not the Jal Vigyani
+    # reply naming other farmers, even though it's the same Clerk account.
+    sent_history = farmer_client.seen_history[0]
+    assert sent_history == [{"role": "user", "content": "what's my status"}]
+    assert not any("Farmer X" in str(m) for m in sent_history)
 
 
 # ---------- Jal Vigyani: full tool parity, not just get_overview ----------
