@@ -169,3 +169,59 @@ def test_dam_operator_without_dam_id_gets_404(client, seed):
     _current.update(key="clerk-dam-1", role="dam_operator", dam_id=None)
     response = client.get("/api/v1/network/state")
     assert response.status_code == 404
+
+
+# ---------- Perf cache (app/services/network_state.py::_state_cache) ----------
+# Each round trip to a remote Postgres costs ~300-500ms regardless of query
+# complexity, and the twin polls every 10s — this cache is what protects
+# multiple simultaneous viewers of the same dam from each re-paying that
+# cost. It must never serve one test's/dam's data to another, and must
+# never serve stale data past a real mutation.
+
+
+def test_second_call_within_ttl_is_served_from_cache(db_session, seed, monkeypatch):
+    from app.core.auth import AuthUser
+    from app.services import network_state
+
+    user = AuthUser(user_id=CLERK_IDS["f1"], role="farmer")
+    farmer = db_session.query(Farmer).filter(Farmer.clerk_user_id == CLERK_IDS["f1"]).one()
+
+    first = network_state.build_network_state(db_session, user, farmer)
+
+    def _boom(*args, **kwargs):
+        raise AssertionError("should not recompute — the cached copy should be served instead")
+
+    # resolve_dam_id (cheap: one canal lookup) still runs even on a cache
+    # hit, to get the cache key — only the expensive composition should be
+    # skipped.
+    monkeypatch.setattr(network_state.dashboard_endpoints, "dam_summary", _boom)
+    second = network_state.build_network_state(db_session, user, farmer)
+    assert second is first
+
+
+def test_mutation_invalidates_the_cache(db_session, seed):
+    from app.core.auth import AuthUser
+    from app.services import network_state
+
+    user = AuthUser(user_id=CLERK_IDS["f1"], role="farmer")
+    farmer = db_session.query(Farmer).filter(Farmer.clerk_user_id == CLERK_IDS["f1"]).one()
+    canal = db_session.get(Canal, 1)
+
+    before = network_state.build_network_state(db_session, user, farmer)
+    before_farmer = next(f for f in before["canals"][0]["farmers"] if f["farmer_id"] == farmer.id)
+    assert before_farmer["requested"] == 700
+
+    # A fresh request on the same canal is exactly the kind of mutation a
+    # farmer might make between two 10s twin polls.
+    db_session.add(
+        WaterRequest(
+            farmer_id=farmer.id, quantity_requested=200, request_date=date(2026, 9, 13),
+            preferred_time="evening", duration_hours=1, crop="Sugarcane",
+        )
+    )
+    db_session.commit()
+    run_allocation_cycle(db_session, canal, actor_id="test")
+    db_session.commit()
+
+    after = network_state.build_network_state(db_session, user, farmer)
+    assert after is not before

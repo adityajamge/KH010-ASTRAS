@@ -13,7 +13,6 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from app.core.auth import AuthUser, require_farmer
-from app.core.config import settings
 from app.db.base import Base
 from app.db.session import get_db
 from app.main import app
@@ -32,13 +31,6 @@ from app.services.allocation import Claim, allocate, detect_shortage, plan_slots
 
 TEST_CLERK_IDS = {"f1": "clerk-farmer-1", "f2": "clerk-farmer-2"}
 _current = {"key": "f1"}
-
-
-@pytest.fixture(autouse=True)
-def _no_mediation_agent(monkeypatch):
-    """Keep these tests fast/deterministic regardless of the real .env —
-    objection tests must not depend on a live Anthropic call."""
-    monkeypatch.setattr(settings, "ANTHROPIC_API_KEY", "")
 
 
 @pytest.fixture()
@@ -253,6 +245,32 @@ def test_objection_boosts_and_revises(client, seed, db_session):
     )
     conflict = db_session.query(Conflict).one()
     assert conflict.status == ConflictStatus.NEGOTIATION
+
+
+def test_repeated_objections_auto_escalate(client, seed, db_session):
+    """PS14 loophole audit §7.5 — a farmer objecting indefinitely must hand
+    the conflict to a human rather than loop the engine forever."""
+    as_farmer("f1")
+    client.post("/api/v1/requests", json=REQUEST)
+    as_farmer("f2")
+    client.post("/api/v1/requests", json={**REQUEST, "quantity_requested": 800})
+
+    as_farmer("f1")
+    for i in range(3):
+        response = client.post(
+            "/api/v1/mediation/objections",
+            json={"reason": "NEED_MORE_WATER", "details": f"attempt {i}"},
+        )
+        assert response.status_code == 200, response.text
+        body = response.json()
+        if i < 2:
+            assert body["escalated"] is False
+        else:
+            assert body["escalated"] is True
+
+    conflict = db_session.query(Conflict).one()
+    assert conflict.status == ConflictStatus.ESCALATED
+    assert db_session.query(Objection).count() == 3
 
 
 def test_accept_freezes_versioned_agreement(client, seed, db_session):

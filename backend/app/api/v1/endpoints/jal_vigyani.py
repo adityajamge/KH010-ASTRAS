@@ -109,32 +109,60 @@ def get_farmer_allocations(
     dam_id: int = Depends(require_jal_vigyani_dam_id), db: Session = Depends(get_db)
 ) -> list[FarmerAllocationSummary]:
     """Each farmer's most recent request/allocation/delivery. §4.5"""
-    canal_ids = _dam_canal_ids(db, dam_id)
+    return farmer_allocations_for_canals(db, _dam_canal_ids(db, dam_id))
+
+
+def farmer_allocations_for_canals(
+    db: Session, canal_ids: list[int]
+) -> list[FarmerAllocationSummary]:
+    """Plain function, not a route — takes already dam-scoped ``canal_ids``
+    directly so a caller that computed them itself (e.g.
+    app/services/network_state.py) doesn't pay for the same query twice.
+    Never call this with caller-supplied ids from an HTTP request; the
+    dam-scoping check lives in the route above, not here.
+    """
     if not canal_ids:
         return []
 
     farmers = (
         db.query(Farmer).filter(Farmer.canal_id.in_(canal_ids)).order_by(Farmer.name).all()
     )
+    if not farmers:
+        return []
+    farmer_ids = [f.id for f in farmers]
+
+    # Batched (PS14 perf fix): the 1-3-queries-per-farmer version of this
+    # loop cost ~300ms per round trip against a remote Postgres — several
+    # seconds for a dam with a dozen farmers. These three queries replace
+    # all of that, regardless of farmer count.
+    latest_request_by_farmer: dict[int, WaterRequest] = {}
+    for req in (
+        db.query(WaterRequest)
+        .filter(WaterRequest.farmer_id.in_(farmer_ids))
+        .order_by(WaterRequest.farmer_id, WaterRequest.request_date.desc(), WaterRequest.created_at.desc())
+        .all()
+    ):
+        latest_request_by_farmer.setdefault(req.farmer_id, req)
+
+    request_ids = [r.id for r in latest_request_by_farmer.values()]
+    allocation_by_request: dict[int, Allocation] = {}
+    if request_ids:
+        for alloc in db.query(Allocation).filter(Allocation.request_id.in_(request_ids)).all():
+            allocation_by_request.setdefault(alloc.request_id, alloc)
+
+    allocation_ids = [a.id for a in allocation_by_request.values()]
+    delivery_by_allocation: dict[int, Delivery] = {}
+    if allocation_ids:
+        for delivery_row in db.query(Delivery).filter(Delivery.allocation_id.in_(allocation_ids)).all():
+            delivery_by_allocation.setdefault(delivery_row.allocation_id, delivery_row)
 
     rows: list[FarmerAllocationSummary] = []
     for farmer in farmers:
-        latest_request = (
-            db.query(WaterRequest)
-            .filter(WaterRequest.farmer_id == farmer.id)
-            .order_by(WaterRequest.request_date.desc(), WaterRequest.created_at.desc())
-            .first()
-        )
+        latest_request = latest_request_by_farmer.get(farmer.id)
         allocation = (
-            db.query(Allocation).filter(Allocation.request_id == latest_request.id).first()
-            if latest_request
-            else None
+            allocation_by_request.get(latest_request.id) if latest_request else None
         )
-        delivery = (
-            db.query(Delivery).filter(Delivery.allocation_id == allocation.id).first()
-            if allocation
-            else None
-        )
+        delivery = delivery_by_allocation.get(allocation.id) if allocation else None
 
         allocated = float(allocation.allocated_quantity) if allocation else None
         delivered = float(delivery.delivered_quantity) if delivery else None

@@ -556,38 +556,46 @@ function ConflictDetailPanel({ detail }: { detail: ConflictDetail }) {
   const { t } = useLanguage();
   return (
     <div className="anomaly-panel" style={{ marginTop: 12 }}>
-      <p className="negotiation-reason" style={{ marginTop: 0 }}>
-        {t("Participants")}
+      <p className="section-label" style={{ marginTop: 0 }}>
+        {t("Participants")} ({detail.participants.length})
       </p>
       {detail.participants.length === 0 ? (
         <p className="negotiation-reason">{t("No participants recorded.")}</p>
       ) : (
-        <ul className="plain-list">
+        <div className="tag-row">
           {detail.participants.map((p) => (
-            <li key={p.farmer_id}>{p.farmer_name}</li>
+            <span className="tag" key={p.farmer_id}>
+              {p.farmer_name}
+            </span>
           ))}
-        </ul>
+        </div>
       )}
-      <p className="negotiation-reason">{t("Objections")}</p>
+
+      <p className="section-label">
+        {t("Objections")} ({detail.objections.length})
+      </p>
       {detail.objections.length === 0 ? (
         <p className="negotiation-reason">{t("No objections filed.")}</p>
       ) : (
-        <ul className="plain-list">
-          {detail.objections.map((o) => (
-            <li key={o.id}>
-              <strong>{o.farmer_name}</strong> — {t(formatStatus(o.reason))}
-              {o.details ? `: ${o.details}` : ""}{" "}
+        detail.objections.map((o) => (
+          <div className="objection-card" key={o.id}>
+            <div className="objection-card-head">
+              <strong>{o.farmer_name}</strong>
               <Pill tone={o.status === "resolved" ? "success" : "neutral"}>
                 {t(formatStatus(o.status))}
               </Pill>
-              {o.mediator_message && (
-                <p className="negotiation-reason mediator-message" style={{ marginTop: 6 }}>
-                  {o.mediator_message}
-                </p>
-              )}
-            </li>
-          ))}
-        </ul>
+            </div>
+            <p className="objection-card-reason">
+              {t(formatStatus(o.reason))}
+              {o.details ? ` — ${o.details}` : ""}
+            </p>
+            {o.mediator_message && (
+              <p className="negotiation-reason mediator-message" style={{ margin: 0 }}>
+                {o.mediator_message}
+              </p>
+            )}
+          </div>
+        ))
       )}
     </div>
   );
@@ -637,6 +645,12 @@ function ConflictCard({ conflict, onChanged }: { conflict: Conflict; onChanged: 
   }
 
   const isTerminal = conflict.status === "resolved" || conflict.status === "approved";
+  const proposalItems = conflict.proposal
+    ? conflict.proposal.split(", ").map((part) => {
+        const [name, qty] = part.split(" → ");
+        return { name: (name ?? part).trim(), qty: (qty ?? "").trim() };
+      })
+    : [];
 
   return (
     <div className="conflict-card">
@@ -644,32 +658,30 @@ function ConflictCard({ conflict, onChanged }: { conflict: Conflict; onChanged: 
         <span className="cid">{conflict.conflict_code}</span>
         <Pill tone={conflictTone(conflict.status)}>{t(formatStatus(conflict.status))}</Pill>
       </div>
-      <div className="conflict-meta">
-        <div>
-          {t("Canal")}
-          <strong>#{conflict.canal_id}</strong>
-        </div>
-        <div>
-          {t("Available")}
-          <strong>{conflict.available_water}</strong>
-        </div>
-        <div>
-          {t("Demand")}
-          <strong>{conflict.total_demand}</strong>
-        </div>
-        <div>
-          {t("Shortage")}
-          <strong>{conflict.shortage}</strong>
-        </div>
-        <div>
-          {t("Priority")}
-          <strong>{t(formatStatus(conflict.priority))}</strong>
-        </div>
-      </div>
-      {conflict.proposal && (
-        <p className="negotiation-reason">
-          {t("Proposal:")} {conflict.proposal}
-        </p>
+      <StatGrid
+        stats={[
+          { label: t("Canal"), value: `#${conflict.canal_id}` },
+          { label: t("Available"), value: String(conflict.available_water) },
+          { label: t("Demand"), value: String(conflict.total_demand) },
+          {
+            label: t("Shortage"),
+            value: String(conflict.shortage),
+            tone: conflict.shortage > 0 ? "warn" : "ok",
+          },
+          { label: t("Priority"), value: t(formatStatus(conflict.priority)) },
+        ]}
+      />
+      {proposalItems.length > 0 && (
+        <>
+          <p className="section-label">{t("Proposal")}</p>
+          <div className="proposal-list">
+            {proposalItems.map((item, i) => (
+              <span className="proposal-chip" key={`${item.name}-${i}`}>
+                {item.name} → <strong>{item.qty}</strong>
+              </span>
+            ))}
+          </div>
+        </>
       )}
       {error && <p className="field-error">{error}</p>}
       <div className="conflict-actions">

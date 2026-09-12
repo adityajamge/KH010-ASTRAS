@@ -62,13 +62,26 @@ class LLMClient:
         raise NotImplementedError
 
 
+#: Both SDKs default to a 10-minute request timeout retried up to twice —
+#: fine for a one-off script, not for a call sitting in the critical path
+#: of a chat request. Bounded here so a slow/unresponsive provider degrades
+#: in seconds, not minutes (this was a real, measured cause of the
+#: "sometimes slow" symptom — see docs/EDGE_CASE_AUDIT.md).
+_REQUEST_TIMEOUT_SECONDS = 20
+_MAX_RETRIES = 1
+
+
 class AnthropicClient(LLMClient):
     def __init__(self) -> None:
         if not settings.ANTHROPIC_API_KEY:
             raise LLMNotConfigured("ANTHROPIC_API_KEY is not set")
         import anthropic
 
-        self._client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
+        self._client = anthropic.Anthropic(
+            api_key=settings.ANTHROPIC_API_KEY,
+            timeout=_REQUEST_TIMEOUT_SECONDS,
+            max_retries=_MAX_RETRIES,
+        )
         self._model = settings.ANTHROPIC_MODEL
 
     def complete(self, system: str, history: list[dict], tools: list[dict]) -> LLMTurn:
@@ -125,7 +138,11 @@ class OpenAIClient(LLMClient):
             raise LLMNotConfigured("OPENAI_API_KEY is not set")
         import openai
 
-        self._client = openai.OpenAI(api_key=settings.OPENAI_API_KEY)
+        self._client = openai.OpenAI(
+            api_key=settings.OPENAI_API_KEY,
+            timeout=_REQUEST_TIMEOUT_SECONDS,
+            max_retries=_MAX_RETRIES,
+        )
         self._model = settings.OPENAI_MODEL
 
     def complete(self, system: str, history: list[dict], tools: list[dict]) -> LLMTurn:

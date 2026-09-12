@@ -53,7 +53,13 @@ def _get_dam_conflict(db: Session, dam_id: int, conflict_id: int) -> Conflict:
 def list_conflicts(
     dam_id: int = Depends(require_jal_vigyani_dam_id), db: Session = Depends(get_db)
 ) -> list[Conflict]:
-    canal_ids = _dam_canal_ids(db, dam_id)
+    return conflicts_for_canals(db, _dam_canal_ids(db, dam_id))
+
+
+def conflicts_for_canals(db: Session, canal_ids: list[int]) -> list[Conflict]:
+    """Plain function, not a route — see farmer_allocations_for_canals in
+    jal_vigyani.py for why (avoids re-deriving canal_ids a caller already
+    has). Never call with caller-supplied ids from an HTTP request."""
     if not canal_ids:
         return []
     return (
