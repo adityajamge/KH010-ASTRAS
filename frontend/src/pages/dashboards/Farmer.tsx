@@ -7,8 +7,10 @@ import {
   useLocation,
   useNavigate,
 } from "react-router-dom";
+import { Capacitor } from "@capacitor/core";
 import { useAuth, useUser } from "@clerk/clerk-react";
 import { DashboardShell, FARMER_NAV } from "../../components/DashboardShell";
+import { NativeFarmerShell } from "../../components/NativeFarmerShell";
 import { Pill, statusTone } from "../../components/dashboard/Pill";
 import { DigitalTwin3D } from "../../components/twin/DigitalTwin3D";
 import { SlotTimeline, groupSchedulesByDate, useNow } from "../../components/dashboard/SlotTimeline";
@@ -1158,6 +1160,30 @@ export function FarmerDashboardPage() {
   const data = useFarmerData();
   const footer = useSidebarFooter(data.summary);
 
+  const routes = (
+    <Routes>
+      <Route index element={<DashboardHome data={data} />} />
+      <Route path="request" element={<RequestSection data={data} />} />
+      <Route path="allocation" element={<AllocationSection data={data} />} />
+      <Route path="mediation" element={<MediationSection data={data} />} />
+      <Route path="schedule" element={<ScheduleSection data={data} />} />
+      <Route path="delivery" element={<DeliverySection data={data} />} />
+      <Route path="twin" element={<DigitalTwin3D />} />
+      <Route path="alerts" element={<AlertsSection data={data} />} />
+      <Route path="history" element={<HistorySection data={data} />} />
+      <Route path="help" element={<HelpSection />} />
+      <Route path="*" element={<Navigate to="/app/farmer" replace />} />
+    </Routes>
+  );
+
+  if (Capacitor.isNativePlatform()) {
+    return (
+      <NativeFarmerShell title={meta.title(displayName, t)} subtitle={meta.subtitle(footer.canalName, t)}>
+        {routes}
+      </NativeFarmerShell>
+    );
+  }
+
   return (
     <DashboardShell
       roleLabel="Farmer"
@@ -1166,19 +1192,7 @@ export function FarmerDashboardPage() {
       navItems={FARMER_NAV}
       footer={footer}
     >
-      <Routes>
-        <Route index element={<DashboardHome data={data} />} />
-        <Route path="request" element={<RequestSection data={data} />} />
-        <Route path="allocation" element={<AllocationSection data={data} />} />
-        <Route path="mediation" element={<MediationSection data={data} />} />
-        <Route path="schedule" element={<ScheduleSection data={data} />} />
-        <Route path="delivery" element={<DeliverySection data={data} />} />
-        <Route path="twin" element={<DigitalTwin3D />} />
-        <Route path="alerts" element={<AlertsSection data={data} />} />
-        <Route path="history" element={<HistorySection data={data} />} />
-        <Route path="help" element={<HelpSection />} />
-        <Route path="*" element={<Navigate to="/app/farmer" replace />} />
-      </Routes>
+      {routes}
     </DashboardShell>
   );
 }

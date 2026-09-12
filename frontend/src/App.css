@@ -2158,3 +2158,183 @@
 .native-welcome-link:hover {
   color: var(--ink);
 }
+
+/* ---------- Native app shell (Capacitor — Farmer, for now) ---------- */
+.native-app-frame {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface-1, #f4f6f8);
+}
+
+.native-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: var(--primary);
+  color: #fff;
+  padding: calc(env(safe-area-inset-top) + 14px) 16px 14px;
+}
+
+.native-topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.native-topbar-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: #fff;
+  padding: 3px;
+  object-fit: contain;
+}
+
+.native-topbar-name {
+  font-size: 18px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.native-topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.native-lang-select {
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 6px 8px;
+  font-size: 13px;
+}
+
+.native-lang-select option {
+  color: #111;
+}
+
+.native-avatar {
+  display: inline-flex;
+  border-radius: 999px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.native-content {
+  flex: 1;
+  padding: 16px 16px calc(env(safe-area-inset-bottom) + 96px);
+}
+
+.native-content-head {
+  margin-bottom: 14px;
+}
+
+.native-content-head h1 {
+  font-size: 21px;
+  font-weight: 700;
+  color: var(--ink);
+  margin: 0;
+}
+
+.native-content-sub {
+  color: var(--ink-muted);
+  font-size: 14px;
+  margin: 4px 0 0;
+}
+
+.native-tabbar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 50;
+  display: flex;
+  background: #fff;
+  border-top: 1px solid var(--hairline);
+  padding: 6px 4px calc(env(safe-area-inset-bottom) + 6px);
+}
+
+.native-tab {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  border: none;
+  background: none;
+  color: var(--ink-muted);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 6px 2px;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.native-tab svg {
+  stroke: var(--ink-muted);
+}
+
+.native-tab.active {
+  color: var(--primary);
+}
+
+.native-tab.active svg {
+  stroke: var(--primary);
+}
+
+.native-sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 15, 25, 0.35);
+  z-index: 55;
+}
+
+.native-sheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 56;
+  background: #fff;
+  border-radius: 20px 20px 0 0;
+  padding: 10px 8px calc(env(safe-area-inset-bottom) + 90px);
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 -12px 30px rgba(20, 40, 60, 0.18);
+}
+
+.native-sheet-handle {
+  width: 40px;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--hairline-strong);
+  margin: 4px auto 10px;
+}
+
+.native-sheet-item {
+  text-align: left;
+  border: none;
+  background: none;
+  color: var(--ink);
+  font-size: 16px;
+  font-weight: 600;
+  padding: 14px 12px;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.native-sheet-item:active {
+  background: var(--surface-1, #f4f6f8);
+}
+
+.native-app-frame .assistant-fab {
+  bottom: calc(env(safe-area-inset-bottom) + 82px);
+}
