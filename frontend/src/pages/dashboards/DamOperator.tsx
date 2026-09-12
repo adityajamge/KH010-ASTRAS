@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
+import { Capacitor } from "@capacitor/core";
 import { useAuth } from "@clerk/clerk-react";
 import { DashboardShell, DAM_NAV } from "../../components/DashboardShell";
+import { NativeDamOperatorShell } from "../../components/NativeDamOperatorShell";
 import { StatGrid } from "../../components/dashboard/StatGrid";
 import { DigitalTwin3D } from "../../components/twin/DigitalTwin3D";
 import { Pill, statusTone } from "../../components/dashboard/Pill";
@@ -444,6 +446,47 @@ export function DamOperatorDashboardPage() {
   const meta = SECTION_META[location.pathname] ?? SECTION_META["/app/dam"];
   const data = useDamData();
 
+  const routes = (
+    <Routes>
+      <Route index element={<DashboardHome data={data} />} />
+      <Route
+        path="reservoir"
+        element={<ReservoirRoute data={data} />}
+      />
+      <Route path="rainfall" element={<RainfallPanel data={data} />} />
+      <Route
+        path="releases"
+        element={
+          <div className="dash-block">
+            <ReleaseTable data={data} />
+          </div>
+        }
+      />
+      <Route path="twin" element={<DigitalTwin3D />} />
+      <Route
+        path="help"
+        element={
+          <div className="dash-block">
+            <div className="card">
+              <p style={{ margin: 0, color: "var(--ink-muted)", fontSize: 14 }}>
+                {t("Contact the system administrator for release approvals or emergency alerts.")}
+              </p>
+            </div>
+          </div>
+        }
+      />
+      <Route path="*" element={<Navigate to="/app/dam" replace />} />
+    </Routes>
+  );
+
+  if (Capacitor.isNativePlatform()) {
+    return (
+      <NativeDamOperatorShell title={t(meta.title)} subtitle={t(meta.subtitle)}>
+        {routes}
+      </NativeDamOperatorShell>
+    );
+  }
+
   return (
     <DashboardShell
       roleLabel="Dam Operator"
@@ -451,36 +494,7 @@ export function DamOperatorDashboardPage() {
       subtitle={t(meta.subtitle)}
       navItems={DAM_NAV}
     >
-      <Routes>
-        <Route index element={<DashboardHome data={data} />} />
-        <Route
-          path="reservoir"
-          element={<ReservoirRoute data={data} />}
-        />
-        <Route path="rainfall" element={<RainfallPanel data={data} />} />
-        <Route
-          path="releases"
-          element={
-            <div className="dash-block">
-              <ReleaseTable data={data} />
-            </div>
-          }
-        />
-        <Route path="twin" element={<DigitalTwin3D />} />
-        <Route
-          path="help"
-          element={
-            <div className="dash-block">
-              <div className="card">
-                <p style={{ margin: 0, color: "var(--ink-muted)", fontSize: 14 }}>
-                  {t("Contact the system administrator for release approvals or emergency alerts.")}
-                </p>
-              </div>
-            </div>
-          }
-        />
-        <Route path="*" element={<Navigate to="/app/dam" replace />} />
-      </Routes>
+      {routes}
     </DashboardShell>
   );
 }
