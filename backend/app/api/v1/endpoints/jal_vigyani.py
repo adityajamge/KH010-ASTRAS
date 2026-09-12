@@ -30,6 +30,7 @@ from app.schemas.jal_vigyani import (
     UnderDeliveryRow,
 )
 from app.schemas.network import CanalRead, DamRead
+from app.services.mediation import run_allocation_cycle
 
 router = APIRouter(prefix="/jal-vigyani", tags=["jal-vigyani"])
 
@@ -300,7 +301,19 @@ def assign_farmer_canal(
                 detail="Canal does not belong to your dam",
             )
 
+    old_canal_id = farmer.canal_id
     farmer.canal_id = payload.canal_id
+    db.flush()
+
+    # Moving a farmer changes who's competing for water on both the canal
+    # they left and the one they joined — recompute both immediately so no
+    # farmer is ever shown an allocation/reason that predates the move.
+    for cid in {old_canal_id, payload.canal_id}:
+        if cid is not None:
+            canal_to_recalc = db.get(Canal, cid)
+            if canal_to_recalc is not None:
+                run_allocation_cycle(db, canal_to_recalc, actor_id=None)
+
     db.commit()
     db.refresh(farmer)
 
