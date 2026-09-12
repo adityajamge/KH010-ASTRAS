@@ -1,4 +1,5 @@
-import { useNavigate } from "react-router-dom";
+import { useUser } from "@clerk/clerk-react";
+import { Navigate, useNavigate } from "react-router-dom";
 import { useLanguage } from "../lib/i18n";
 
 /**
@@ -6,10 +7,21 @@ import { useLanguage } from "../lib/i18n";
  * "/" here instead of the marketing Landing page when
  * Capacitor.isNativePlatform() is true) — a native app opens to its own
  * onboarding identity, not a website hero section built for a browser tab.
+ *
+ * Clerk's <SignIn>/<SignUp> redirect to "/" by default (no
+ * fallbackRedirectUrl set) — on the website that's <Landing/>, which
+ * already checks SignedIn/SignedOut and offers a way into the dashboard.
+ * This screen must do the same check itself, or a freshly-logged-in user
+ * lands right back here with no way forward and it looks like login
+ * silently did nothing.
  */
 export function NativeWelcome() {
   const navigate = useNavigate();
   const { t } = useLanguage();
+  const { isLoaded, isSignedIn } = useUser();
+
+  if (!isLoaded) return null;
+  if (isSignedIn) return <Navigate to="/app" replace />;
 
   return (
     <main className="native-welcome">
