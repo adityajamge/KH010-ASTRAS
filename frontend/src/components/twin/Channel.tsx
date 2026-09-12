@@ -80,7 +80,9 @@ export function Channel({
 
   useFrame((_, delta) => {
     if (flow === "none") return;
-    texture.offset.y -= delta * (flow === "low" ? 0.18 : 0.5);
+    // Points run head -> tail; offset.y increasing (not decreasing) is what
+    // makes the ripple pattern read as flowing downstream, dam to farms.
+    texture.offset.y += delta * (flow === "low" ? 0.18 : 0.5);
   });
 
   const waterW = flow === "low" ? width * 0.55 : width;
