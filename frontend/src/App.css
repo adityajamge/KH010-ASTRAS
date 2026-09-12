@@ -2338,3 +2338,9 @@
 .native-app-frame .assistant-fab {
   bottom: calc(env(safe-area-inset-bottom) + 82px);
 }
+
+/* Used via Clerk's `appearance.elements` prop (SignInPage/SignUpPage) to
+   hide OAuth buttons on native builds, where they don't work. */
+.clerk-native-hidden {
+  display: none !important;
+}
