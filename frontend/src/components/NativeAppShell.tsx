@@ -107,6 +107,31 @@ export function HelpCircleIcon() {
     </svg>
   );
 }
+export function AlertTriangleIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M10.3 3.9 1.9 18a1.6 1.6 0 0 0 1.4 2.4h17.4a1.6 1.6 0 0 0 1.4-2.4L13.7 3.9a1.6 1.6 0 0 0-2.8 0Z" />
+      <path d="M12 9v4.5M12 17h.01" />
+    </svg>
+  );
+}
+export function UsersIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="9" cy="8" r="3.2" />
+      <path d="M3 20v-1.2A4.8 4.8 0 0 1 7.8 14h2.4A4.8 4.8 0 0 1 15 18.8V20" />
+      <path d="M16 8.2a3 3 0 1 1 1 5.8" />
+      <path d="M17 14.3c2.3.4 4 1.9 4 4.5V20" />
+    </svg>
+  );
+}
+export function ActivityIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 12h4l2.5-7L13 19l2.5-7H21" />
+    </svg>
+  );
+}
 
 /**
  * Shared native-app chrome for Capacitor builds: a fixed brand-colored top

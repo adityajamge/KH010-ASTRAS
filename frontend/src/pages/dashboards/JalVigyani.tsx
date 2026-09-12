@@ -1,7 +1,9 @@
 import { useState, type FormEvent } from "react";
 import { Navigate, Route, Routes, useLocation } from "react-router-dom";
+import { Capacitor } from "@capacitor/core";
 import { useAuth } from "@clerk/clerk-react";
 import { DashboardShell, JAL_VIGYANI_NAV } from "../../components/DashboardShell";
+import { NativeJalVigyaniShell } from "../../components/NativeJalVigyaniShell";
 import { Pill, statusTone } from "../../components/dashboard/Pill";
 import { StatGrid } from "../../components/dashboard/StatGrid";
 import { DigitalTwin3D } from "../../components/twin/DigitalTwin3D";
@@ -1187,13 +1189,7 @@ export function JalVigyaniDashboardPage() {
   const { t } = useLanguage();
   const meta = SECTION_META[location.pathname] ?? SECTION_META["/app/jal-vigyani"];
 
-  return (
-    <DashboardShell
-      roleLabel="Jal Vigyani"
-      title={t(meta.title)}
-      subtitle={t(meta.subtitle)}
-      navItems={JAL_VIGYANI_NAV}
-    >
+  const routes = (
       <Routes>
         <Route index element={<DashboardHome />} />
         <Route path="farmers" element={<FarmersSection />} />
@@ -1238,6 +1234,24 @@ export function JalVigyaniDashboardPage() {
         />
         <Route path="*" element={<Navigate to="/app/jal-vigyani" replace />} />
       </Routes>
+  );
+
+  if (Capacitor.isNativePlatform()) {
+    return (
+      <NativeJalVigyaniShell title={t(meta.title)} subtitle={t(meta.subtitle)}>
+        {routes}
+      </NativeJalVigyaniShell>
+    );
+  }
+
+  return (
+    <DashboardShell
+      roleLabel="Jal Vigyani"
+      title={t(meta.title)}
+      subtitle={t(meta.subtitle)}
+      navItems={JAL_VIGYANI_NAV}
+    >
+      {routes}
     </DashboardShell>
   );
 }
