@@ -27,12 +27,15 @@ class Settings(BaseSettings):
     # NoDecode: these are plain comma-separated strings, not JSON arrays —
     # pydantic-settings otherwise tries to JSON-decode any list[str] field
     # read from .env before the field_validator below ever runs.
-    # https://localhost and capacitor://localhost are the Capacitor Android/
-    # iOS WebView origins (frontend/capacitor.config.ts) — the native app
-    # shares this same backend.
+    # https://localhost / http://localhost / capacitor://localhost are the
+    # Capacitor Android/iOS WebView origins (frontend/capacitor.config.ts —
+    # androidScheme is "http" for now, since the backend has no TLS cert;
+    # https://localhost is kept too in case that ever changes back) — the
+    # native app shares this same backend.
     BACKEND_CORS_ORIGINS: Annotated[list[str], NoDecode] = [
         "http://localhost:5173",
         "https://localhost",
+        "http://localhost",
         "capacitor://localhost",
     ]
 
@@ -49,6 +52,7 @@ class Settings(BaseSettings):
     CLERK_AUTHORIZED_PARTIES: Annotated[list[str], NoDecode] = [
         "http://localhost:5173",
         "https://localhost",
+        "http://localhost",
         "capacitor://localhost",
     ]
 
