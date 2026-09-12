@@ -25,3 +25,15 @@ export const FLOW_COLOR: Record<"low" | "normal" | "high", string> = {
   normal: "#2f6fb0",
   high: "#1c4f86",
 };
+
+/** Crop-field tint per twin_status — healthy green down to dry/stressed
+ * tones, so a farm plot's field color reads at a glance like the reservoir
+ * gauge does. */
+export const CROP_COLOR: Record<TwinStatus, string> = {
+  normal: "#4c7f33",
+  approved: "#4c7f33",
+  shortage: "#8d8a3b",
+  delivery_issue: "#8d8a3b",
+  pending_mediation: "#a8875a",
+  conflict: "#b18a56",
+};

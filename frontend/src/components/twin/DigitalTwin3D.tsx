@@ -194,9 +194,9 @@ export function DigitalTwin3D() {
       </div>
       <div className="twin-layout">
         <div className="twin-canvas-wrap">
-          <Canvas shadows camera={{ position: [4, 7, 14], fov: 45 }}>
+          <Canvas shadows camera={{ position: [6, 11, 24], fov: 42 }}>
             <Scene state={data} selection={selection} onSelect={setSelection} />
-            <OrbitControls enablePan minDistance={4} maxDistance={30} />
+            <OrbitControls enablePan minDistance={5} maxDistance={60} />
           </Canvas>
         </div>
         <DetailPanel state={data} selection={selection} />
