@@ -15,6 +15,7 @@ import { FarmerOnboardingGate } from "./components/FarmerOnboardingGate";
 import { RouteProgressBar } from "./components/RouteProgressBar";
 import { ROLES } from "./lib/roles";
 import { LanguageProvider } from "./lib/i18n";
+import { useNativeBackButton } from "./lib/useNativeBackButton";
 import "./App.css";
 
 const clerkKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
@@ -36,6 +37,8 @@ function MissingKeyNotice() {
 }
 
 function App() {
+  useNativeBackButton();
+
   if (!clerkKey) {
     return <MissingKeyNotice />;
   }
