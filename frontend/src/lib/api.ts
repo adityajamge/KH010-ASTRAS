@@ -59,10 +59,22 @@ async function authedRequest<T>(
   });
   if (!response.ok) {
     const body = await response.json().catch(() => null);
-    const detail =
+    let detail: string;
+    const raw =
       body && typeof body === "object" && "detail" in body
-        ? String((body as { detail: unknown }).detail)
-        : `API request failed: ${response.status} ${path}`;
+        ? (body as { detail: unknown }).detail
+        : null;
+    if (typeof raw === "string") detail = raw;
+    else if (Array.isArray(raw))
+      detail = raw
+        .map((e) =>
+          e && typeof e === "object" && "msg" in (e as Record<string, unknown>)
+            ? String((e as Record<string, unknown>).msg)
+            : JSON.stringify(e),
+        )
+        .join("; ");
+    else if (raw != null) detail = JSON.stringify(raw);
+    else detail = `API request failed: ${response.status} ${path}`;
     throw new ApiError(response.status, detail);
   }
   if (response.status === 204) return undefined as T;
@@ -354,6 +366,22 @@ export function submitWaterRequest(
 /** POST {API_URL}/api/v1/requests/cancel — withdraw the current open request. */
 export function cancelWaterRequest(token: string): Promise<WaterRequestRead> {
   return apiPost<WaterRequestRead>("/api/v1/requests/cancel", token, {});
+}
+
+export interface RequestLimit {
+  max_allowed: number;
+  total_area_acres: number;
+  crop: string;
+  crop_stage: string | null;
+  norm_per_acre: number;
+  tolerance: number;
+  has_fields: boolean;
+}
+
+/** GET {API_URL}/api/v1/requests/limit — max requestable units for this farmer. */
+export function getRequestLimit(token: string, crop?: string): Promise<RequestLimit> {
+  const qs = crop?.trim() ? `?crop=${encodeURIComponent(crop.trim())}` : "";
+  return apiFetch<RequestLimit>(`/api/v1/requests/limit${qs}`, token);
 }
 
 /** GET {API_URL}/api/v1/mediation/me — current proposal + evidence. */

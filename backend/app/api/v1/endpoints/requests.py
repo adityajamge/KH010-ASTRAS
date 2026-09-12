@@ -18,7 +18,9 @@ from app.services.requests import (
     NoCanalAssigned,
     NoOpenRequest,
     RequestDateInPast,
+    RequestExceedsLimit,
     cancel_water_request,
+    farmer_limit,
     submit_water_request,
 )
 
@@ -47,11 +49,28 @@ def submit_request(
         )
     except RequestDateInPast as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+    except RequestExceedsLimit as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
     except NoCanalAssigned as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc))
     db.commit()
     db.refresh(req)
     return req
+
+
+@router.get("/limit")
+def read_own_limit(
+    crop: str | None = None,
+    user: AuthUser = Depends(require_farmer),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Max requestable units for the signed-in farmer (area × norm × tolerance).
+
+    Pass ``?crop=Sugarcane`` to preview the cap for the crop currently typed
+    in the form; without it the farmer's own field crop is used.
+    """
+    farmer = get_own_farmer(db, user)
+    return farmer_limit(db, farmer, crop or None)
 
 
 @router.post("/cancel", response_model=WaterRequestRead)

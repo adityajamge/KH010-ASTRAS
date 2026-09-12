@@ -23,12 +23,14 @@ import {
   cancelWaterRequest,
   getFarmerDashboard,
   getMediation,
+  getRequestLimit,
   submitObjection,
   submitWaterRequest,
   type AcceptResult,
   type FarmerDashboardSummary,
   type MediationView,
   type ObjectionResult,
+  type RequestLimit,
 } from "../../lib/api";
 
 const MONTHS = [
@@ -663,6 +665,28 @@ function RequestSection({ data }: { data: FarmerData }) {
   const [urgency, setUrgency] = useState("normal");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [limit, setLimit] = useState<RequestLimit | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      (async () => {
+        try {
+          const token = await getToken();
+          if (!token) return;
+          const cropArg = crop.trim() || undefined;
+          const value = await getRequestLimit(token, cropArg);
+          if (!cancelled) setLimit(value);
+        } catch {
+          if (!cancelled) setLimit(null);
+        }
+      })();
+    }, 400);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [getToken, crop]);
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
@@ -671,6 +695,14 @@ function RequestSection({ data }: { data: FarmerData }) {
     const hrs = Number(duration);
     if (!Number.isFinite(qty) || qty <= 0 || !requestDate || !crop.trim()) {
       setError(t("Please fill in quantity, date, and crop."));
+      return;
+    }
+    if (limit?.has_fields && qty - limit.max_allowed > 0.01) {
+      setError(
+        t(
+          `Requested quantity exceeds your max of ${fmtQty(limit.max_allowed)} units (${limit.total_area_acres} acres × ${limit.norm_per_acre}/acre × ${limit.tolerance} tolerance).`,
+        ),
+      );
       return;
     }
     if (requestDate < today) {
@@ -715,8 +747,16 @@ function RequestSection({ data }: { data: FarmerData }) {
               type="number"
               value={quantity}
               min={0}
+              max={limit?.has_fields ? limit.max_allowed : undefined}
               onChange={(e) => setQuantity(e.target.value)}
             />
+            {limit?.has_fields && (
+              <p className="hero-note" style={{ marginTop: 4 }}>
+                {t(
+                  `Max allowed: ${fmtQty(limit.max_allowed)} units (${limit.total_area_acres} acres × ${limit.norm_per_acre}/acre × ${limit.tolerance} tolerance)`,
+                )}
+              </p>
+            )}
           </div>
           <div className="form-field">
             <label htmlFor="date">{t("Date")}</label>

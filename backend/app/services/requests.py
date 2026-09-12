@@ -12,9 +12,10 @@ from datetime import date
 from sqlalchemy.orm import Session
 
 from app.models.enums import AllocationStatus, PriorityLevel, RequestStatus, ScheduleStatus
-from app.models.farmer import Farmer
+from app.models.farmer import Farmer, Field
 from app.models.network import Canal
 from app.models.request import Allocation, Schedule, WaterRequest
+from app.services.crop_norms import TOLERANCE, max_allowed, norm_per_acre
 from app.services.mediation import (
     OPEN_REQUEST_STATUSES,
     REWRITABLE_ALLOCATION_STATUSES,
@@ -35,6 +36,41 @@ class RequestDateInPast(ValueError):
 
 class NoOpenRequest(ValueError):
     """No open (not yet accepted) request exists to cancel."""
+
+
+class RequestExceedsLimit(ValueError):
+    """Requested quantity is above the area × norm × tolerance cap."""
+
+    def __init__(self, message: str, *, max_allowed: float):
+        super().__init__(message)
+        self.max_allowed = max_allowed
+
+
+def farmer_limit(db: Session, farmer: Farmer, crop: str | None = None) -> dict:
+    """Max requestable units for this farmer: total field area × norm × tolerance.
+
+    Norm is looked up by the *requested* crop (or the farmer's own crop when
+    none is given yet) and the primary field's stage. Farmers with no field
+    row yet get no cap (empty area) so onboarding is never blocked.
+    """
+    fields = db.query(Field).filter(Field.farmer_id == farmer.id).all()
+    total_area = sum(float(f.area_acres) for f in fields)
+    primary = next((f for f in fields if f.id == farmer.field_id), None) or (
+        fields[0] if fields else None
+    )
+    stage = primary.crop_stage if primary else None
+    use_crop = crop or (primary.crop if primary else None) or "default"
+    norm = norm_per_acre(use_crop, stage)
+    cap = max_allowed(total_area, use_crop, stage)
+    return {
+        "max_allowed": cap,
+        "total_area_acres": round(total_area, 2),
+        "crop": use_crop,
+        "crop_stage": stage,
+        "norm_per_acre": round(norm, 2),
+        "tolerance": TOLERANCE,
+        "has_fields": primary is not None,
+    }
 
 
 def _cancel_open_request(db: Session, req: WaterRequest) -> None:
@@ -73,6 +109,14 @@ def submit_water_request(
 ) -> WaterRequest:
     if request_date < date.today():
         raise RequestDateInPast("Request date cannot be in the past.")
+    limit = farmer_limit(db, farmer, crop)
+    if limit["has_fields"] and quantity_requested - limit["max_allowed"] > 0.01:
+        raise RequestExceedsLimit(
+            f"Requested {quantity_requested:.0f} exceeds your max {limit['max_allowed']:.0f} "
+            f"units ({limit['total_area_acres']:.2f} acres × {limit['norm_per_acre']:.0f}/acre "
+            f"× {limit['tolerance']} tolerance).",
+            max_allowed=limit["max_allowed"],
+        )
     canal = db.get(Canal, farmer.canal_id) if farmer.canal_id else None
     if canal is None:
         raise NoCanalAssigned("No canal assigned — complete onboarding with a canal first")
